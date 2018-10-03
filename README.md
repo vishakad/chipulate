@@ -18,17 +18,51 @@ Animate requires the following Python3 libraries installed --- ```argparse```,``
 
 	Optional arguments:
   	-h, --help            show this help message and exit
-  	--mu-A MU_A           Chemical potential (in units of k_B T) of TF A, where A is the target TF of the ChIP-seq. (default: 3.0)
-  	--mu-B MU_B           Chemical potential (in units of k_B T) of TF B, where B is a second TF that may be involved in cooperative or indirect interactions with A, the target TF of the ChIP-seq. (default: 3.0)
-  	-i INPUT_BG, --input-bg INPUT_BG	Background binding energy (in units of k_BT) in the input sample of the ChIP-seq experiment. Must be greater than zero. A higher value indicates weaker binding in the input sample. (default: 3.0)
-  	-n NUM_CELLS, --num-cells NUM_CELLS	Number of cells used in the ChIP sample of the experiment. A progressive increase in this value slows down the simulation. (default: 100000)
-  	-d DEPTH, --depth DEPTH	Sequencing depth. We define this as the number of reads expected per binding location if an equal number of reads came from each location. The total number of sequence reads used is the product of the sequencing depth and the number of binding locations. A fractional value can be passed if the total number of reads is less than the number of binding locations. The depth is set to be equal in both ChIP and input samples. (default: 100)
-  	-p PCR_CYCLES, --pcr-cycles PCR_CYCLES	Number of cycles employed in the PCR amplification step. (default: 15)
-  	-i GENOME_FILE, --input-file INPUT_FILE	File name of a tab-separated file that contains location-wise information about the genome being simulated and the experimental parameters of the ChIP-seq. The first line is ignored and can be used as a header. Each subsequent line contains an entry of the form 
-  		<p_ext> <p_amp> <binding_energy_A> <|sequence|> <|binding_energy_B|><|binding_type|> <|interaction energy|><|chrom_accessibility|>. 
-		
-	The columns enclosed in  |..| are optional. See below for details on each column
-  	-o OUTPUT_FILE, --output-file OUTPUT_FILE   Name of the output file. The output is a tab separated file that lists the following columns --- <chip_reads> <unique_chip_reads> <control_reads> <unique_control_reads>. See below for more    information on each column. (default: None)
+  	--mu-A MU_A           Chemical potential (in units of k_B T) of TF A, where
+        	                A is the target TF of the ChIP-seq. (default: 3.0)
+  	--mu-B MU_B           Chemical potential (in units of k_B T) of TF B, where
+                        B is a second TF that may be involved in cooperative
+                        or indirect interactions with A, the target TF of the
+                        ChIP-seq. (default: 3.0)
+  	-i INPUT_BG, --input-bg INPUT_BG
+                        Background binding energy (in units of k_BT) in the
+                        input sample of the ChIP-seq experiment. Must be
+                        greater than zero. A higher value indicates weaker
+                        binding in the input sample. (default: 3.0)
+  	-n NUM_CELLS, --num-cells NUM_CELLS
+                        Number of cells used in the ChIP sample of the
+                        experiment. A progressive increase in this value slows
+                        down the simulation. (default: 100000)
+  	-d DEPTH, --depth DEPTH
+                        Sequencing depth. We define this as the number of
+                        reads expected per binding location if an equal number
+                        of reads came from each location. The total number of
+                        sequence reads used is the product of the sequencing
+                        depth and the number of binding locations. A
+                        fractional value can be passed if the total number of
+                        reads is less than the number of binding locations.
+                        The coverage is set to be equal in both ChIP and input
+                        samples. (default: 100)
+  	-p PCR_CYCLES, --pcr-cycles PCR_CYCLES
+                        Number of cycles employed in the PCR amplification
+                        step. (default: 15)
+  	-i GENOME_FILE, --input-file INPUT_FILE
+                        File name of a tab-separated file that contains
+                        location-wise information about the genome being
+                        simulated and the experimental parameters of the ChIP-
+                        seq. The first line is ignored and can be used as a header. 
+			Each subsequent line contains an entry of the form <p_ext>
+                        <p_amp> <binding_energy_A> <|sequence|> <|binding_energy_B|>
+                        <|binding_type|> <|interaction energy|>
+                        <|chrom_accessibility|>. The columns enclosed in
+                        |..| are optional. See README for more information on
+                        each column. (default: None)
+  	-o OUTPUT_FILE, --output-file OUTPUT_FILE
+                        Name of the output file. The output is a tab separated
+                        file that lists the following columns --- <chip_reads>
+                        <unique_chip_reads> <control_reads>
+                        <unique_control_reads>. See README for more
+                        information on each column. (default: None)
 
 	The GENOME_FILE columns represent the following quantities:
 	<p_ext> --- The extraction efficiency at each genomic location. The value must lie between 0 and 1.
