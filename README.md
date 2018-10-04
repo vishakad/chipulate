@@ -337,3 +337,20 @@ The key quantity to control while setting the PCR efficiency column in the input
 The probability mass functions of the number of amplified fragments obtained after 15 cycles of PCR are present in the ```output/pcr-data/``` folder. This considerably speeds up the simulation process since this distribution does not have to be computed afresh. These are files named ```15-0.01.npy```, ```15-0.02.npy``` to ```15-0.99.npy```. The filename convention is ```<number of cycles>-<PCR efficiency>.npy```. Note that if PCR efficiencies other than these values are specified in the ```p_amp``` column in the input file, they will be rounded down to 2 decimal places. 
 
 This is because the computation of the probability mass function of the number of amplified fragments obtained from a single fragment becomes a slow process beyond $n = 10$ cycles. If you wish to simulate more cycles of PCR, or any number other than 15 cycles, this can still be specified in the ```--pcr-cycles``` command-line switch. Animate will first compute these distributions for all efficiencies between 0.01 and 0.99 in steps of 0.01 and then store them in the ```output/pcr-data/``` for future use. Later runs of Animate with this number of PCR cycles will then be fast since these stored distributions will be loaded from disk. 
+
+## Reproducing results from our manuscript
+The ```paper/``` folder contains a jupyter notebook (```Manuscript.ipynb```) that can be executed to reproduce the results in our manuscript. An additional download is required to run the last cell of the notebook. Instructions for this are provided within the notebook itself. 
+
+Email vishakadatta@gmail.com in case of any issues. 
+
+## License
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+
+## Authors
+Vishaka Datta S
+
+## Acknowledgements
+
+* Sridhar Hannenhalli, Rahul Siddharthan for helping set up each aspect of the Animate pipeline.
+* Sandeep Krishna, Gautam Menon for useful discussions on the binding model employed in Animate.
+* Parul Singh for discussions on the ChIP-seq protocol and peak callers. 
