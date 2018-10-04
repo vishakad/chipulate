@@ -154,6 +154,9 @@ To execute ```animate.py``` on this file with the remaining setting set to their
 	
 No output file is specified in the above syntax. When this is the case, the input file name is used as a prefix to generate three output files. In this case, the files are named ```basicExample.tsv.animate.out``` (the main output file), ```basicExample.tsv.animate.out.diag_output``` (contains intermediate output from Animate along with the output from the main output file) and ```basicExample.tsv.animate.run_info``` (contains run information about the parameters of the simulation). 
 
+
+#### Main output 
+
 In a run of the command ```python3 animate.py -i basicExample.tsv```, the contents of ```basicExample.tsv.animate.out``` are ---
 
 	p_ext	p_amp	energy_A	chip_reads	unique_chip_reads	control_reads	unique_control_reads
@@ -168,6 +171,7 @@ In a run of the command ```python3 animate.py -i basicExample.tsv```, the conten
 	0.5036510000000001	0.58	0.41	109	80	93	71
 	0.578344	0.28	0.15	6	5	6	6
 
+#### .run_info output
 The information on the parameters used to generate this output are in ```basicExample.tsv.animate.out.run_info``` ---
 
 	Number of cells in ChIP sample : 100000
@@ -178,6 +182,7 @@ The information on the parameters used to generate this output are in ```basicEx
 	Sequencing depth : 100
 	Total read count : 1000
 	
+### .diag_output diagnostic output
 The diagnostic output generated is in ```basicExample.tsv.animate.out.diag_output``` ---
 
 	name	energy_A	binding	sequence	p_occ_chip	p_occ_bg	chip_fragments	control_fragments	unique_control_reads	control_reads	unique_chip_reads	chip_reads	amp_control_fragments	amp_chip_fragments	ext_control_fragments	ext_chip_fragments	read_count_ratio
@@ -301,4 +306,5 @@ When the command ```python3 animate.py -i examples/coopExample.tsv -o examples/c
 	0.49219700000000005	0.58	0.41	ATCAGGTGAT	direct	0.59	-1	63	56	83	70
 	0.5036510000000001	0.58	0.41	ATCAGGTGAT	direct	0.0	0	78	63	71	54
 	0.578344	0.28	0.15	GTCACGTGAT	direct	0.2	0	4	4	7	7
+
 
