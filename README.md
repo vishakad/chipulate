@@ -238,3 +238,67 @@ The diagnostic output is written to ```examples/mwe.animate.diag_output``` ---
 	9	0.41	direct		0.7483817216070642	0.04742587317756678	7551	187	79	260	91	329	88385	103121	93	106	1.1518987341772151
 	10	0.15	direct		0.7941296281990528	0.04742587317756678	7963	191	13	15	7	7	4572	3334	102	84	0.5384615384615384
 
+### Running Animate with indirect binding between two transcription factors
+
+When indirect binding between two TFs is to be simulated, the ```binding_type```, ```energy_B``` and ```int_energy``` columns need to be specified. See ```examples/indirectExample.tsv``` for an example. Its contents are pasted below ---
+
+	p_ext	p_amp	energy_A	binding_type	energy_B	int_energy
+	0.539179	0.18	2.15	direct	0.20	0
+	0.505944	0.58	1.85	direct	0.20	0
+	0.498672	0.58	3.41	direct	0.31	0
+	0.479857	0	9.79	direct	2	0
+	0.494356	0.58	6.15	direct	0	0
+	0.554812	0.58	5.15	direct	0.20	0
+	0.545281	0.38	2.15	indirect	0	0
+	0.492197	0.58	1.85	indirect	0	0
+	0.503651	0.58	3.41	indirect	0	0
+	0.578344	0.28	9.79	indirect	0	0
+	0.578344	0.28	5.15	indirect	0	0
+	0.578344	0.28	2.15	indirect	0	0
+
+After running animate with the command ```python3 animate.py -i examples/indirectExample.tsv -o examples/indirectExample```, the output is written to ```indirectExample.animate.out``` ---
+
+	p_ext	p_amp	energy_A	binding_type	energy_B	int_energy	chip_reads	unique_chip_reads	control_reads	unique_control_reads
+	0.539179	0.18	2.15	direct	0.2	0	3	3	1	1
+	0.505944	0.58	1.85	direct	0.2	0	266	167	197	123
+	0.498672	0.58	3.41	direct	0.31	0	143	84	167	110
+	0.479857	0.0	9.79	direct	2.0	0	0	0	0	0
+	0.494356	0.58	6.15	direct	0.0	0	14	11	169	109
+	0.554812	0.58	5.15	direct	0.2	0	35	21	231	155
+	0.545281	0.38	2.15	indirect	0.0	0	35	32	25	25
+	0.49219700000000005	0.58	1.85	indirect	0.0	0	316	186	190	129
+	0.5036510000000001	0.58	3.41	indirect	0.0	0	319	197	194	114
+	0.578344	0.28	9.79	indirect	0.0	0	17	16	10	10
+	0.578344	0.28	5.15	indirect	0.0	0	30	29	10	10
+	0.578344	0.28	2.15	indirect	0.0	0	22	21	6	6
+
+### Simulating cooperative and competitive binding with Animate, along with sequences at each location
+
+In the example for indirect binding, all the interaction energies between both transcription factors are set to zero. To simulate cooperative or competitive binding, the interaction energies can be set to negative or positive values, respectively. The file ```coopExample.tsv``` below shows an example of this, along with sequences to be associated with each location. 
+
+	p_ext	p_amp	energy_A	sequence	binding_type	energy_B	int_energy
+	0.539179	0.18	0.15	GTCACGTGAT	direct	0.20	-2
+	0.505944	0.58	0.15	GTCACGTGAT	direct	0.20	-2
+	0.498672	0.58	0.41	ATCAGGTTAGCAGAT	direct	0.31	-2
+	0.479857	0.79	0.15	GTCACGTATAAGAT	direct	0	0
+	0.494356	0.58	0.15	GTCAtaaataCGTGAT	direct	0	-1
+	0.554812	0.58	0.15	GTCAgacaCGTGAT	direct	0.20	3
+	0.545281	0.38	0.41	ATCAGGTGAT	direct	0.20	2
+	0.492197	0.58	0.41	ATCAGGTGAT	direct	0.59	-1
+	0.503651	0.58	0.41	ATCAGGTGAT	direct	0	0
+	0.578344	0.28	0.15	GTCACGTGAT	direct	0.20	0
+
+When the command ```python3 animate.py -i examples/coopExample.tsv -o examples/coopExample``` is run, the output is written to ```examples/coopExample.animate. 
+
+	p_ext	p_amp	energy_A	sequence	binding_type	energy_B	int_energy	chip_reads	unique_chip_reads	control_reads	unique_control_reads
+	0.539179	0.18	0.15	GTCACGTGAT	direct	0.2	-2	1	1	1	1
+	0.505944	0.58	0.15	GTCACGTGAT	direct	0.2	-2	81	67	81	67
+	0.498672	0.58	0.41	ATCAGGTTAGCAGAT	direct	0.31	-2	78	62	69	60
+	0.479857	0.79	0.15	GTCACGTATAAGAT	direct	0.0	0	524	204	504	196
+	0.494356	0.58	0.15	GTCAtaaataCGTGAT	direct	0.0	-1	60	50	77	61
+	0.554812	0.58	0.15	GTCAgacaCGTGAT	direct	0.2	3	100	79	98	80
+	0.545281	0.38	0.41	ATCAGGTGAT	direct	0.2	2	11	11	9	9
+	0.49219700000000005	0.58	0.41	ATCAGGTGAT	direct	0.59	-1	63	56	83	70
+	0.5036510000000001	0.58	0.41	ATCAGGTGAT	direct	0.0	0	78	63	71	54
+	0.578344	0.28	0.15	GTCACGTGAT	direct	0.2	0	4	4	7	7
+
