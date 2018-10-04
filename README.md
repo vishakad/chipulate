@@ -134,7 +134,7 @@ the Examples section for more details.
 
 ### Minimum working example
 
-The file ```basicExample.tsv``` in the ```examples``` folder is the minimum working input required to run animate.py. The contents of the file are the following ---
+The file ```basicExample.tsv``` in the ```examples``` folder is the minimum working input required to run animate.py. The contents of the file are the following (10 locations are being simulated in this example) ---
 
 	p_ext	p_amp	energy_A
 	0.539179	0.18	0.15
@@ -182,7 +182,7 @@ The information on the parameters used to generate this output are in ```basicEx
 	Sequencing depth : 100
 	Total read count : 1000
 	
-### .diag_output diagnostic output
+#### .diag_output diagnostic output
 The diagnostic output generated is in ```basicExample.tsv.animate.out.diag_output``` ---
 
 	name	energy_A	binding	sequence	p_occ_chip	p_occ_bg	chip_fragments	control_fragments	unique_control_reads	control_reads	unique_chip_reads	chip_reads	amp_control_fragments	amp_chip_fragments	ext_control_fragments	ext_chip_fragments	read_count_ratio
@@ -307,4 +307,33 @@ When the command ```python3 animate.py -i examples/coopExample.tsv -o examples/c
 	0.5036510000000001	0.58	0.41	ATCAGGTGAT	direct	0.0	0	78	63	71	54
 	0.578344	0.28	0.15	GTCACGTGAT	direct	0.2	0	4	4	7	7
 
+## Notes on parameters and performance of Animate
 
+The running time of Animate is largely determined by the number of amplified fragments that are generated during the simulation. The parameters that increase the number of amplified fragments generated (while other parameters are held constant) are ---
+
+* A decrease in the binding energies across the genome (```energy_A``` and/or ```energy_B``` in input file). This increases the occupancy probability of locations, which gives rise to more bound fragments.
+* A decreaase in the background binding energy in the input sample (```--input-bg``` command-line switch).
+* An increase in the chemical potential (```--mu_A``` and/or ```--mu-B``` command-line switches). This is increases the occupancy probability of all genomic locations.
+* An increase in the number of genomic locations.
+* An increase in the number of cells (```--num-cells``` command-line switch).
+* an increase in the control cell fraction (```--control-cell-fraction``` command-line switch).
+* An increase in the extraction efficiency (```p_ext``` column in input file).
+* An increase in the PCR efficiency (```p_amp``` column in input file) and/or the number of PCR cycles (--pcr-cycles command-line switch). The input file to Animate requires PCR efficiencies to be input to the program. See the PCR efficiency -> Amplification ratio conversion table for how efficiencies map to amplification ratios for guiding choices of this parameter. *Note :* It is recommended to use ```n = 15``` cycles of PCR whenever possible for purposes of speed. See the section "PCR  simulation process" for more information.
+* An increase in chromatin accessibility (```chrom_accessibility``` column in input file).
+
+### PCR efficiency to amplification ratio table
+
+The key quantity to control while setting the PCR efficiency column in the input file is the amplification ratio. This is defined as A = (1 + p)^{n}, where A is the amplification ratio, p is the PCR efficiency and n is the number of PCR cycles. The table below gives values of p and n and the amplification ratios corresponding to them.
+
+|A	| p = 0.1|p=0.25| p=0.5|p=0.75|p=0.9|
+|:---:|:---:|:---:|:---:|:---:|:---:|
+|n=10|2.59|9.31|57.67|269.39|613.11|
+|n=12|3.14|14.55|129.75|825.01|2213.31|
+|n=15|4.18|28.42|437.89|4421.51|15181.13|
+|n=18|5.56|55.51|1477.89|23696.54|104127.35|
+
+### PCR simulation process
+
+The probability mass functions of the number of amplified fragments obtained after 15 cycles of PCR are present in the ```output/pcr-data/``` folder. This considerably speeds up the simulation process since this distribution does not have to be computed afresh. These are files named ```15-0.01.npy```, ```15-0.02.npy``` to ```15-0.99.npy```. The filename convention is ```<number of cycles>-<PCR efficiency>.npy```. Note that if PCR efficiencies other than these values are specified in the ```p_amp``` column in the input file, they will be rounded down to 2 decimal places. 
+
+This is because the computation of the probability mass function of the number of amplified fragments obtained from a single fragment becomes a slow process beyond $n = 10$ cycles. If you wish to simulate more cycles of PCR, or any number other than 15 cycles, this can still be specified in the ```--pcr-cycles``` command-line switch. Animate will first compute these distributions for all efficiencies between 0.01 and 0.99 in steps of 0.01 and then store them in the ```output/pcr-data/``` for future use. Later runs of Animate with this number of PCR cycles will then be fast since these stored distributions will be loaded from disk. 
