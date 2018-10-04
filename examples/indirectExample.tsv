@@ -1,0 +1,13 @@
+p_ext	p_amp	energy_A	binding_type	energy_B	int_energy
+0.539179	0.18	2.15	direct	0.20	0
+0.505944	0.58	1.85	direct	0.20	0
+0.498672	0.58	3.41	direct	0.31	0
+0.479857	0	9.79	direct	2	0
+0.494356	0.58	6.15	direct	0	0
+0.554812	0.58	5.15	direct	0.20	0
+0.545281	0.38	2.15	indirect	0	0
+0.492197	0.58	1.85	indirect	0	0
+0.503651	0.58	3.41	indirect	0	0
+0.578344	0.28	9.79	indirect	0	0
+0.578344	0.28	5.15	indirect	0	0
+0.578344	0.28	2.15	indirect	0	0
