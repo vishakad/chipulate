@@ -175,7 +175,7 @@ def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100,
 
     return genome
 
-parser = argparse.ArgumentParser(description='The ANIMATE pipeline for\
+parser = argparse.ArgumentParser(description='The ChIPulate pipeline for\
                                  simulating read counts in a ChIP-seq experiment', 
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter )
 
@@ -323,14 +323,14 @@ def validateInput( df ):
 def main():
     inputFileName = args.input_file
     if args.output_prefix is None:
-        outputFileName = inputFileName + '.animate.out'
+        outputFileName = inputFileName + '.chipulate.out'
         outputPrefix = inputFileName
     else:
-        outputFileName = args.output_prefix + '.animate.out'
+        outputFileName = args.output_prefix + '.chipulate.out'
         outputPrefix = args.output_prefix
 
-    diagOutputFileName = outputPrefix + '.animate.diag_output'
-    runInfoOutputFileName = outputPrefix + '.animate.run_info'
+    diagOutputFileName = outputPrefix + '.chipulate.diag_output'
+    runInfoOutputFileName = outputPrefix + '.chipulate.run_info'
 
     depth = args.depth
     numCells = args.num_cells
