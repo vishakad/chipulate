@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 class GenomeBindingTable:
-    def __init__( self, sequences, spEnergies, bgEnergy, chemicalPotential, numCells, controlCellRatio=1.0, secondTFspEnergies=[], secondTFchemicalPotential=0, secondTFintEnergies=[], indirectLocations=[], chromAccessibility=[]):
+    def __init__( self, sequences, spEnergies, bgEnergy, chemicalPotential, numCells, unboundEnergy=1.59, controlCellRatio=1.0, secondTFspEnergies=[], secondTFchemicalPotential=0, secondTFintEnergies=[], indirectLocations=[], chromAccessibility=[]):
         """
         The GenomeBindingTable class stores the number of bound fragments based
         on the number of bound fragments in ChIP and input samples at each
@@ -23,6 +23,8 @@ class GenomeBindingTable:
         5) numCells --- Number of cells to be employed in the ChIP sample.
 
         The keyword arguments are
+        6) unboundEnergy --- This is the binding energy of the unbound state (in
+        units of kBT) of a genomic location. By default, this is set to 1.59. 
         6) controlCellRatio --- This is a fraction that determines the number of cells in the
         ChIP sample that will be employed in the control sample. The default
         value is 1.0 i.e. the same number of cells will be employed in both ChIP
@@ -83,6 +85,11 @@ class GenomeBindingTable:
         #Background binding energy for the control sample
         self.bgEnergy = bgEnergy                    
 
+        #Binding energy E_0 corresponding to the unbound state. By default, this
+        #is set to a value where the occupancy probability at the highest
+        #affinity site is 0.99
+        self.unboundEnergy = unboundEnergy
+
         #Chemical potential of the target TF. Default value : 0
         self.chemicalPotential = chemicalPotential  
 
@@ -127,7 +134,6 @@ class GenomeBindingTable:
             self.chromAccessibility = np.ones( self.N )
         else:
             self.chromAccessibility = chromAccessibility
-
 
         if len(secondTFintEnergies) > 0:
             locRange = np.arange(self.N)
@@ -181,8 +187,9 @@ class GenomeBindingTable:
         #The probability of a location being bound in the ChIP sample. 
         #This is the expression employed when there is only a single TF
         #capable of binding a location.
-        spWt = np.exp( (self.spEnergies - self.chemicalPotential) )
-        pTFbound = 1.0/(spWt + 1 )
+        spWt = np.exp( (-self.spEnergies + self.chemicalPotential) )
+        unboundWt = np.exp( -self.unboundEnergy )
+        pTFbound = spWt/(spWt + unboundWt)
 
         if len( self.secondTFintEnergies ) > 0 and len( self.indirectLocations ) == 0:
             #When there are two TFs present in the simulation, then the pTFbound
@@ -192,8 +199,7 @@ class GenomeBindingTable:
             spWt = np.exp( (-self.spEnergies + self.chemicalPotential) )
             secondTFwt = np.exp( -self.secondTFspEnergies + self.secondTFchemicalPotential )
             coopWt = np.exp( -self.secondTFspEnergies - self.secondTFintEnergies - self.spEnergies + self.chemicalPotential + self.secondTFchemicalPotential )
-            unboundWt = 1.0
-            denom = (1 + spWt + secondTFwt + coopWt)
+            denom = (unboundWt + spWt + secondTFwt + coopWt)
 
             pTFbound = (spWt + coopWt)/denom
             
@@ -202,7 +208,7 @@ class GenomeBindingTable:
             #TF determines the occupancy of the location and not the binding
             #energy of the target TF.
             indirectWt = np.exp( -self.secondTFspEnergies + self.secondTFchemicalPotential )
-            pTFbound[ self.indirectLocations ] = indirectWt[ self.indirectLocations ]/(1 + indirectWt[self.indirectLocations])
+            pTFbound[ self.indirectLocations ] = indirectWt[ self.indirectLocations ]/(unboundWt + indirectWt[self.indirectLocations])
 
         self.locations.loc[:,'p_occ_chip'] = pTFbound * self.chromAccessibility
         return [pTFbound,pBgBound]
