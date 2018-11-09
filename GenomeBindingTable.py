@@ -24,7 +24,9 @@ class GenomeBindingTable:
 
         The keyword arguments are
         6) unboundEnergy --- This is the binding energy of the unbound state (in
-        units of kBT) of a genomic location. By default, this is set to 1.59. 
+        units of kBT) of a genomic location. By default, this is set to 1.59, so
+        that the occupancy of the highest affinity site (i.e. site with zero
+        energy) is 0.99. 
         6) controlCellRatio --- This is a fraction that determines the number of cells in the
         ChIP sample that will be employed in the control sample. The default
         value is 1.0 i.e. the same number of cells will be employed in both ChIP
