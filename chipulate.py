@@ -21,7 +21,7 @@ def makeArray( val, N ):
     return val
 
 def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100,
-                   pExt=1.0, pAmp=0.58, pcrCycles=15, bgEnergy=3,
+                   pExt=1.0, pAmp=0.58, pcrCycles=15, bgEnergy=1,
                    chemicalPotential=3, secondTFspEnergies=[],
                    secondTFchemicalPotential=0, chromAccessibility=[],
                    secondTFintEnergies=[], indirectLocations=[], controlCellRatio=1.0 ):
@@ -200,10 +200,10 @@ the number of cells used in the ChIP sample that is used for the control\
                     samples to 1.', type=float, default=controlCellRatioDefault,
                     required=False )
 
-bgEnergyDefault = 3.0
+bgEnergyDefault = 1.0
 parser.add_argument( '-b', '--input-bg', help='Background binding energy (in units of\
                     k_BT) in the input sample of the ChIP-seq experiment. Must\
-                    be greater than zero. A higher value indicates weaker\
+                    be less than the unbound energy. A higher value indicates weaker\
                     binding in the input sample.'.format( bgEnergyDefault ), type=float, default=bgEnergyDefault )
 
 numCellsDefault = 100000

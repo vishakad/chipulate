@@ -49,7 +49,7 @@ def sampleAccessibility( alpha, numSamples=1000 ):
 
     return samples
 
-def generateChIPreplicates( spEnergies, numCells=100000, depth=100, ampRatio=1000, pExt=1.0, pcrCycles=15, bgEnergy=3, chemicalPotential=3, kdeReplicates=100 ):
+def generateChIPreplicates( spEnergies, numCells=100000, depth=100, ampRatio=1000, pExt=1.0, pcrCycles=15, bgEnergy=1, chemicalPotential=3, kdeReplicates=100 ):
     """
     This function generates multiple replicates of read count ratios from across the genome. 
 
@@ -66,7 +66,7 @@ def generateChIPreplicates( spEnergies, numCells=100000, depth=100, ampRatio=100
     return simulatedRatios
 
 def samplePosteriorSingleTF( spEnergy, simulatedRatios, spEnergies, thinning=10, nMCitr=10000, numTrials=5, prior='uniform',ampRatio=1000,depth=100, numCells=100000,
-                            pExt=1.0, pcrCycles=15, eps=0.2, bgEnergy=3, maxReplicates=-1, chemicalPotential=0,makePlot=False,priorParams=[] ):
+                            pExt=1.0, pcrCycles=15, eps=0.2, bgEnergy=1, maxReplicates=-1, chemicalPotential=0,makePlot=False,priorParams=[] ):
 
     #Fraction of iterations that are to be discarded as the burn-in period of
     #the Markov chain.
@@ -132,9 +132,7 @@ def samplePosteriorSingleTF( spEnergy, simulatedRatios, spEnergies, thinning=10,
         numAvg = 0
 
         savedSamples = []
-        if makePlot:
-            posteriorIntervals = []
-            posteriorMedians = []
+        posteriorIntervals = []
 
         upperLimit = sortedEnergies[-1]
         lowerLimit = sortedEnergies[0]
@@ -237,9 +235,10 @@ def samplePosteriorSingleTF( spEnergy, simulatedRatios, spEnergies, thinning=10,
                 print("95% credible interval width : {}".format( energyEstHigher - energyEstLower ))
                 print("--------------")
 
-                savedSamples.append( samplesToSave )
+                if makePlot:
+                    savedSamples.append( samplesToSave )
+
                 posteriorIntervals.append( [energyEstLower,energyEstHigher] )
-                posteriorMedians.append( np.median( samplesToSave ) )
 
                 if spEnergy < energyEstLower or spEnergy > energyEstHigher: 
                     trial -= 1
@@ -296,7 +295,7 @@ def makeArray( val, N ):
 
     return val
 
-def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100, ampRatio=1000, pExt=1.0, pcrCycles=15, bgEnergy=3, chemicalPotential=0, secondTFspEnergies=[], secondTFchemicalPotential=0, chromAccessibility=[], secondTFintEnergies=[], indirectLocations=[], indirectSequences=[], numFPlocations=0 ):
+def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100, ampRatio=1000, pExt=1.0, pcrCycles=15, bgEnergy=1, chemicalPotential=0, secondTFspEnergies=[], secondTFchemicalPotential=0, chromAccessibility=[], secondTFintEnergies=[], indirectLocations=[], indirectSequences=[], numFPlocations=0 ):
     """
     This function combines the GenomeBindingTable,FragExtract,PCR and ChIPseq
     classes together and returns a dataframe that contains read counts at
@@ -369,8 +368,9 @@ def getBaselineMotif( chemicalPotential=3, numLocations=1000, tf='Tye7', energie
 
     learnGenome = genome.sort_values(by='ratio',ascending=False).head(np.int(0.1*numLocations))
     pwmSingle, pcmSingle, pfmRef = findPWM( learnGenome['sequence'].values )
+    motifSequences = learnGenome['sequence'].values
 
-    return [spEnergies,sequences,pfmRef]
+    return [spEnergies,sequences,motifSequences,pfmRef]
 
 def findPWM( sequences ):
     #Background frequencies of A, T, G, C from the S. cerevisiae genome.
@@ -483,7 +483,7 @@ def singleTFmain(makePlot=False,prior='uniform',priorParams=[],maxReplicates=5):
         sigma = parameters[1]
         spEnergies = distributions.truncNorm( a=lower, b=upper, mu=mu, sigma=sigma, size=numLocations )
 
-    kdeReplicates = 10000
+    kdeReplicates = 1000
 
     numTFs = 1
     prefix = ''
@@ -497,7 +497,7 @@ def singleTFmain(makePlot=False,prior='uniform',priorParams=[],maxReplicates=5):
     if not os.path.isfile( os.path.join( 'data', fileName ) ): 
         simulatedRatios = generateChIPreplicates( spEnergies, kdeReplicates=kdeReplicates, pExt=pExt, chemicalPotential=chemicalPotential )
 
-        np.savez( fileName, simulatedRatios=simulatedRatios, spEnergies=spEnergies, pExt=pExt )
+        np.savez( os.path.join( 'data', fileName ), simulatedRatios=simulatedRatios, spEnergies=spEnergies, pExt=pExt )
     else:
         print("Loaded file {}".format( fileName ) )
         archive = np.load( os.path.join( 'data', fileName ) )
@@ -516,7 +516,7 @@ def singleTFmain(makePlot=False,prior='uniform',priorParams=[],maxReplicates=5):
     dictFileName = '{}posteriorData-N{}-K{}-distInfo-{}-numTFs-{}-prior{}-mu{}.pickle'.format( prefix, numLocations, kdeReplicates, str(distInfo), numTFs, prior, chemicalPotential )
 
     if makePlot:
-        repRecord, posteriorIntervalSet = samplePosteriorSingleTF( 2, simulatedRatios, spEnergies,
+        posteriorIntervalSet = samplePosteriorSingleTF( 2, simulatedRatios, spEnergies,
                                             numTrials=1, chemicalPotential=chemicalPotential,
                                             prior=prior,pExt=pExt, priorParams=priorParams,
                                             nMCitr=nMCitr,makePlot=True, maxReplicates=maxReplicates )

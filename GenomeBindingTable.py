@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 class GenomeBindingTable:
-    def __init__( self, sequences, spEnergies, bgEnergy, chemicalPotential, numCells, unboundEnergy=1.59, controlCellRatio=1.0, secondTFspEnergies=[], secondTFchemicalPotential=0, secondTFintEnergies=[], indirectLocations=[], chromAccessibility=[]):
+    def __init__( self, sequences, spEnergies, bgEnergy, chemicalPotential, numCells, unboundEnergy=1.59, controlCellRatio=0.1, secondTFspEnergies=[], secondTFchemicalPotential=0, secondTFintEnergies=[], indirectLocations=[], chromAccessibility=[]):
         """
         The GenomeBindingTable class stores the number of bound fragments based
         on the number of bound fragments in ChIP and input samples at each
@@ -180,15 +180,16 @@ class GenomeBindingTable:
         See Methods section in the manuscript for details on the calculation. 
         """
 
+        unboundWt = np.exp( -self.unboundEnergy )
+
         #The probability of a location being bound in the input sample.
-        bgWt = np.exp( self.bgEnergy )
-        pBgBound = 1.0/(1 + bgWt)
+        bgWt = np.exp( -self.bgEnergy )
+        pBgBound = bgWt/(unboundWt + bgWt)
 
         #The probability of a location being bound in the ChIP sample. 
         #This is the expression employed when there is only a single TF
         #capable of binding a location.
         spWt = np.exp( (-self.spEnergies + self.chemicalPotential) )
-        unboundWt = np.exp( -self.unboundEnergy )
         pTFbound = spWt/(spWt + unboundWt)
 
         if len( self.secondTFintEnergies ) > 0 and len( self.indirectLocations ) == 0:
