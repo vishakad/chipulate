@@ -114,7 +114,7 @@ The header of the GENOME_FILE input must contain the following column items, of 
 
 ## Output generated	
 
-The main output file, with the extension ```.chipulate.out``` is a tsv file that includes the following columns, in addition to the columns specified in the input file ---
+The main output file, with the extension ```.chipulate.out```, is a tsv file that includes the following columns in addition to the columns specified in the input file ---
 
 	chip_reads --- The number of reads in the ChIP sample at each genomic
 	location. This includes both unique reads and duplicate reads arising from
@@ -134,7 +134,7 @@ the Examples section for more details.
 
 ### Minimum working example
 
-The file ```basicExample.tsv``` in the ```examples``` folder is the minimum working input required to run chipulate.py. The contents of the file are the following (10 locations are being simulated in this example) ---
+The file ```basicExample.tsv``` in the ```examples``` folder is the minimum working input required to run ```chipulate.py```. The contents of the file are the following (10 locations are being simulated in this example) ---
 
 	p_ext	p_amp	energy_A
 	0.539179	0.18	0.15
@@ -148,11 +148,11 @@ The file ```basicExample.tsv``` in the ```examples``` folder is the minimum work
 	0.503651	0.58	0.41
 	0.578344	0.28	0.15
 
-To execute ```chipulate.py``` on this file with the remaining setting set to their default values, run the following command ---
+To execute ```chipulate.py``` on this file with the remaining parameters set to their default values, run the following command ---
 
 	python3 chipulate.py -i basicExample.tsv
 	
-No output file is specified in the above syntax. When this is the case, the input file name is used as a prefix to generate three output files. In this case, the files are named ```basicExample.tsv.chipulate.out``` (the main output file), ```basicExample.tsv.chipulate.out.diag_output``` (contains intermediate output from ChIPulate along with the output from the main output file) and ```basicExample.tsv.chipulate.run_info``` (contains run information about the parameters of the simulation). 
+No output file is specified in the above syntax. When this is the case, the input file name is used as a prefix to generate the  three output files described above. In this case, the files are named ```basicExample.tsv.chipulate.out``` (the main output file), ```basicExample.tsv.chipulate.out.diag_output``` (contains intermediate output from ChIPulate along with the output from the main output file) and ```basicExample.tsv.chipulate.run_info``` (contains run information about the parameters of the simulation). 
 
 
 #### Main output 
