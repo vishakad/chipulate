@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 class GenomeBindingTable:
-    def __init__( self, sequences, spEnergies, bgEnergy, chemicalPotential, numCells, unboundEnergy=1.59, controlCellRatio=0.1, secondTFspEnergies=[], secondTFchemicalPotential=0, secondTFintEnergies=[], indirectLocations=[], chromAccessibility=[]):
+    def __init__( self, numCells, chromAccessibility ):
         """
         The GenomeBindingTable class stores the number of bound fragments based
         on the number of bound fragments in ChIP and input samples at each
@@ -75,143 +75,16 @@ class GenomeBindingTable:
         """
 
         #Total number of cells used in the ChIP sample.
-        self.numCells = np.float64( numCells )
-        self.chipCells = np.int64( numCells )
+        self.numCells = numCells
 
-        #Binding mismatch energies for the target TF
-        self.spEnergies = spEnergies                
+        self.chromAccessibility = chromAccessibility
 
         #Total number of binding locations
-        self.N = np.int64( len(spEnergies) )        
-
-        #Background binding energy for the control sample
-        self.bgEnergy = bgEnergy                    
-
-        #Binding energy E_0 corresponding to the unbound state. By default, this
-        #is set to a value where the occupancy probability at the highest
-        #affinity site is 0.99
-        self.unboundEnergy = unboundEnergy
-
-        #Chemical potential of the target TF. Default value : 0
-        self.chemicalPotential = chemicalPotential  
-
-        #Fraction of cells that is used for the control experiment. Default : 0.9
-        self.controlCells = np.int64( controlCellRatio * self.numCells ) 
-
-        #Binding energies of the second TF that may be passed in 
-        #to the simulation.
-        self.secondTFspEnergies = secondTFspEnergies
-
-        #Chemical potential of the second TF
-        self.secondTFchemicalPotential = secondTFchemicalPotential
-
-        #Interaction energy of the target TF (A) with the second TF (B)
-        self.secondTFintEnergies = secondTFintEnergies
-
-        #Indices of locations that are indirectly bound.
-        self.indirectLocations = indirectLocations
-
-        #Each location is assigned a name, which is just a number between 1 and N,
-        #where N is the number of binding locations. This is the column used
-        #to join entries with second tables from the fragment extraction, 
-        #PCR amplification and sequencing processes.
-        self.locations = pd.DataFrame( columns=['name'] )
-        self.locations.loc[:,'name'] = range( 1, self.N+1 )
-
-        #Binding energies of the TF A at each location.
-        self.locations.loc[:,'energy_A'] = spEnergies
-
-        #By default, all bound locations are assumed to be directly bound, and
-        #are assigned the label 'direct'.
-        self.locations.loc[:,'binding'] = 'direct'
-
-        if len(sequences) > 0:
-            self.locations.loc[:,'sequence'] = sequences
-        else:
-            self.locations.loc[:,'sequence'] = [""]*self.N
-
-        #Chromatin accessibility of genomic locations. This is set to 1
-        #if no value is passed. 
-        if len(chromAccessibility) == 0:
-            self.chromAccessibility = np.ones( self.N )
-        else:
-            self.chromAccessibility = chromAccessibility
-
-        if len(secondTFintEnergies) > 0:
-            locRange = np.arange(self.N)
-            #Locations where the interaction energy is negative are
-            #cooperatively bound by A and B
-            coopLocations = locRange[ secondTFintEnergies < 0 ]
-
-            #Locations where the interaction energy is positive are
-            #competitively bound  by A and B.
-            compLocations = locRange[ secondTFintEnergies > 0 ]
-
-            #Binding energies of the second TF B. 
-            self.locations.loc[:,'energy_B'] = secondTFspEnergies
-
-            #Interaction energies between A and B at each genomic location.
-            self.locations.loc[:,'int_energy'] = secondTFintEnergies
-
-            #The binding type at each location is set to "cooperative" or "competitive"
-            #at each location based on the interaction energy assigned to it. 
-            self.locations.loc[coopLocations,'binding'] = 'cooperative'
-            self.locations.loc[compLocations,'binding'] = 'competitive'
-
-        if len( indirectLocations ) > 0:
-            self.locations.loc[indirectLocations,'binding'] = 'indirect'
-            self.indirectLocations = indirectLocations
+        self.N = np.int64( len(self.chromAccessibility) )        
 
         #pTFbound are the probabilities of finding the target TF bound at each
         #genomic location.  pBgBound is the probability of each of these
         #locations being bound in the input sample of the ChIP-seq experiment.
-        pTFbound, pBgBound = self.computeBindingProbabilities( )
-        self.locations.loc[:,'p_occ_bg'] = pBgBound
-
-        chipFragments = binom.rvs( self.chipCells, self.locations['p_occ_chip'].values, size=self.N )
-        self.locations.loc[:,'chip_fragments'] = chipFragments
-
-        controlBound = binom.rvs( self.controlCells, self.locations['p_occ_bg'].values, size=self.N )
-        self.locations.loc[:,'control_fragments'] = controlBound
-
-    def computeBindingProbabilities( self ):
-        """
-        Compute binding probabilities at each genomic location based on its
-        binding and interaction energy. 
-
-        See Methods section in the manuscript for details on the calculation. 
-        """
-
-        unboundWt = np.exp( -self.unboundEnergy )
-
-        #The probability of a location being bound in the input sample.
-        bgWt = np.exp( -self.bgEnergy )
-        pBgBound = bgWt/(unboundWt + bgWt)
-
-        #The probability of a location being bound in the ChIP sample. 
-        #This is the expression employed when there is only a single TF
-        #capable of binding a location.
-        spWt = np.exp( (-self.spEnergies + self.chemicalPotential) )
-        pTFbound = spWt/(spWt + unboundWt)
-
-        if len( self.secondTFintEnergies ) > 0 and len( self.indirectLocations ) == 0:
-            #When there are two TFs present in the simulation, then the pTFbound
-            #values computed in the earlier step are over-written. 
-            #See the Methods section in the manuscript for the justification
-            #behind computing occupancies of cooperatively bound TFs in this fashion.
-            spWt = np.exp( (-self.spEnergies + self.chemicalPotential) )
-            secondTFwt = np.exp( -self.secondTFspEnergies + self.secondTFchemicalPotential )
-            coopWt = np.exp( -self.secondTFspEnergies - self.secondTFintEnergies - self.spEnergies + self.chemicalPotential + self.secondTFchemicalPotential )
-            denom = (unboundWt + spWt + secondTFwt + coopWt)
-
-            pTFbound = (spWt + coopWt)/denom
-            
-        if len( self.indirectLocations ) > 0:
-            #In the case of indirect binding, the binding energy of the second
-            #TF determines the occupancy of the location and not the binding
-            #energy of the target TF.
-            indirectWt = np.exp( -self.secondTFspEnergies + self.secondTFchemicalPotential )
-            pTFbound[ self.indirectLocations ] = indirectWt[ self.indirectLocations ]/(unboundWt + indirectWt[self.indirectLocations])
-
-        self.locations.loc[:,'p_occ_chip'] = pTFbound * self.chromAccessibility
-        return [pTFbound,pBgBound]
+        self.fragmentMat = np.zeros( (self.numCells,self.N), dtype=np.uint8 )
+        for row in range(self.fragmentMat.shape[0]):
+            self.fragmentMat[row,:] = binom.rvs( 1, self.chromAccessibility )

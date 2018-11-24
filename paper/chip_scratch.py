@@ -295,7 +295,7 @@ def makeArray( val, N ):
 
     return val
 
-def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100, ampRatio=1000, pExt=1.0, pcrCycles=15, bgEnergy=1, chemicalPotential=0, secondTFspEnergies=[], secondTFchemicalPotential=0, chromAccessibility=[], secondTFintEnergies=[], indirectLocations=[], indirectSequences=[], numFPlocations=0 ):
+def performChipSeq( numCells=1000, nReads=100, ampRatio=1000, pExt=1.0, pcrCycles=15,  chromAccessibility=[] ):
     """
     This function combines the GenomeBindingTable,FragExtract,PCR and ChIPseq
     classes together and returns a dataframe that contains read counts at
@@ -303,238 +303,36 @@ def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100, amp
     performChipSeq() function that is part of Animate in that some locations
     can be labelled as false positive binding sites.
     """
-    N = len( spEnergies )
-    pExtChip = pExt
-    pExtControl = pExt
+    table = gbt.GenomeBindingTable( numCells, chromAccessibility=chromAccessibility  )
+    N = len( chromAccessibility )
 
-    numChipReads = N * depth
-    numControlReads = N * depth
-
-    bgEnergy = makeArray( bgEnergy, N )
-    pAmp = np.round( np.power(ampRatio,1.0/pcrCycles) - 1, 2 )
-    pAmp = np.maximum( 0.01, pAmp )
-    pAmp = np.minimum( pAmp, 0.99 )
-
-    table = gbt.GenomeBindingTable( sequences, spEnergies,
-                                   bgEnergy, chemicalPotential, numCells,
-                                   secondTFspEnergies=secondTFspEnergies,
-                                   secondTFchemicalPotential=secondTFchemicalPotential,
-                                   secondTFintEnergies=secondTFintEnergies,
-                                   indirectLocations=indirectLocations,
-                                   chromAccessibility=chromAccessibility  )
-
-    pExtControl = makeArray( pExtControl, N )
-    pExtChip = makeArray( pExtChip, N )
-    fragExtract = Frag.FragExtract( pExtControl, pExtChip, table )
-    pAmp = makeArray( pAmp, N )
+    pExt = makeArray( pExt, N )
+    fragExtract = Frag.FragExtract( pExt, table )
+    pAmp = np.power( ampRatio, 1.0/pcrCycles ) - 1 
+    pAmp = np.round( makeArray( pAmp, N ), 2 )
     pcrObj = ChipSeq.PCR( pcrCycles, pAmp )
 
-    chipSeq = ChipSeq.ChipSeq( table, fragExtract, pcrObj, 
-                              nControlReads=numControlReads,
-                              nChipReads=numChipReads )
+    numReads = makeArray( nReads, numCells )
+    chipSeq = ChipSeq.ChipSeq( fragExtract, pcrObj, nReads=numReads )
     
-    genome = table.locations.merge( chipSeq.readsTable )
-    genome = genome.merge( chipSeq.amplifiedTable )
-    genome = genome.merge( fragExtract.extractedTable )
-    genome.loc[:,'ratio'] = genome.eval('unique_chip_reads/unique_control_reads')
+    return chipSeq.uniqueMat
 
-    if numFPlocations > 0:
-        genome.loc[:,'ratio'] = genome.eval('unique_chip_reads/unique_control_reads')
-        genome.loc[(N-numFPlocations):,'binding'] = 'false-positive'            
+def posteriorEstimate( readMat ):
+    numLocations = readMat.shape[1]
+    numCells = readMat.shape[0]
+    beta = numCells
 
-    return genome
+    alphaPrior = 5 * np.ones( numLocations )
+    betaPrior = 10 * np.ones( numLocations )
 
-def getBaselineMotif( chemicalPotential=3, numLocations=1000, tf='Tye7', energiesSampled=[] ):
-    """
-    This function is used to compute the baseline motif in a ChIP-seq experiment
-    where there is no heterogeneity in extraction and amplification efficiency
-    across the genome. 
+    alphaNew = alphaPrior + readMat.sum(axis=0)
+    betaNew = betaPrior/( betaPrior * numCells + 1 )
 
-    Returns :  
-    There are three items returned in a list in the output. 
-    The first are the binding energies employed in the simulation.
-    The second is the binding site sequences.
-    The third is the weight matrix, or the baseline motif. 
-    """
-    motif = MotifTable.MotifTable( tf )
+    return [alphaNew,betaNew]
+     
 
-    if len( energiesSampled ) == 0:
-        energiesSampled = distributions.truncPowerLawRVs( 0.5, 0, 10, size=numLocations )
+#def main():
+#    singleTFmain(prior='powerLaw',maxReplicates=5,priorParams=[0.5,0,10])
 
-    spEnergies, sequences = motif.sampleFromDistribution( energiesSampled )
-    pcrCycles = 15
-    ampRatio = 1000
-    genome = performChipSeq( sequences, spEnergies, chemicalPotential=chemicalPotential, ampRatio=ampRatio )
-
-    learnGenome = genome.sort_values(by='ratio',ascending=False).head(np.int(0.1*numLocations))
-    pwmSingle, pcmSingle, pfmRef = findPWM( learnGenome['sequence'].values )
-    motifSequences = learnGenome['sequence'].values
-
-    return [spEnergies,sequences,motifSequences,pfmRef]
-
-def findPWM( sequences ):
-    #Background frequencies of A, T, G, C from the S. cerevisiae genome.
-    bgFrequencies = [3.093e-01,1.907e-01,1.907e-01,3.093e-01] 
-
-    numSeq = len( sequences )
-    seqLen = len( sequences[0] )
-
-    seqMat = np.zeros( (numSeq,seqLen), dtype=np.object ) 
-    for idx in range(numSeq):
-        seqMat[idx,:] = list(sequences[idx])
-
-    pwmMat = np.zeros( (4,seqLen), dtype=np.float64 ) 
-    pcmMat = np.zeros_like( pwmMat )
-    pfmMat = np.zeros_like( pwmMat )
-    for col in range(seqLen):
-        row = 0
-        for letter in ['A','C','G','T']:
-            count = np.sum( seqMat[:,col] == letter )*1.0
-            pfmMat[row,col] = (count + bgFrequencies[row] )/( bgFrequencies[row] * ( numSeq + 1 ) )
-            pcmMat[row,col] = count
-            row += 1
-        pfmMat[:,col] = pfmMat[:,col]/(pfmMat[:,col].sum())
-
-    for col in range(seqLen):
-        row = 0
-        for letter in ['A','C','G','T']:
-            pwmMat[row,col] = np.log2( pfmMat[row,col]/bgFrequencies[row] )
-            row += 1
-
-    return [pwmMat,pcmMat,pfmMat]
-
-def makeDirectSequences( numLocations, tf, distInfo ):
-    numLocations = np.int( numLocations )
-    motif = MotifTable.MotifTable( tf )
-
-    directDf = pd.DataFrame()
-
-    if distInfo[0] == 'powerLaw':
-        distFunc = distributions.truncPowerLawRVs
-        parameter, lower, upper = distInfo[1:4]
-
-    lower = max( lower, motif.minEnergy )
-    upper = min( upper, motif.maxEnergy )
-
-    #energiesSampled = -distFunc( parameter, -upper, -lower, size=numLocations )
-    energiesSampled = distFunc( parameter, lower, upper, size=numLocations )
-
-    spEnergies, sequences = motif.sampleFromDistribution( energiesSampled )
-    directDf.loc[:,'sequence'] = sequences
-    directDf.loc[:,'sp_energy_1'] = spEnergies
-    directDf.loc[:,'mode'] = 'direct'
-
-    return [directDf, motif]
-
-def makeCoopSequences( numCoopLocations, tfPair, distInfoPair ):
-    coopDf = pd.DataFrame({})
-    numCoopLocations = np.int( numCoopLocations )
-
-    idx = 1
-    motifList = []
-    for (tf,distInfo) in zip(tfPair,distInfoPair):
-        motif = MotifTable.MotifTable( tf )
-        motifList.append( motif )
-
-        if distInfo[0] == 'powerLaw':
-            distFunc = distributions.truncPowerLawRVs
-            parameter, lower, upper = distInfo[1:4]
-        
-        energiesSampled = distFunc( parameter, lower, upper, size=numCoopLocations)
-        spEnergies, sequences = motif.sampleFromDistribution( energiesSampled )
-        coopDf.loc[:,'sp_energy_{}'.format( idx )] = spEnergies
-        coopDf.loc[:,'sequence_{}'.format( idx )] = sequences
-        idx += 1
-
-    coopDf.loc[:,'mode'] = 'cooperative'
-    return [coopDf, motifList]
-
-def makeBackgroundSequences( numLocations, tf ):
-    numLocations = np.int( numLocations )
-    motif = MotifTable.MotifTable( tf )
-    numRows, numCols = motif.pwm.shape
-
-    seqLen = np.int( max( numRows, numCols ) )
-
-    backgroundDf = pd.DataFrame()
-    backgroundDf.loc[:,'sequence'] = MotifTable.makeDinucBackground( numLocations, seqLen=seqLen )
-    backgroundDf.loc[:,'energy_A'] = motif.getInformation( backgroundDf['sequence'].values )
-
-    return backgroundDf
-
-def singleTFmain(makePlot=False,prior='uniform',priorParams=[],maxReplicates=5):
-    chemicalPotential = 3
-
-    numLocations = 1000
-    pExt = distributions.truncNorm( a=0, b=1, mu=0.5, sigma=0.05, size=numLocations )
-
-    distInfo = ['powerLaw', 0.5, 0, 10]
-
-    if distInfo[0] == 'powerLaw':
-        parameter, lower, upper = distInfo[1:4]
-        spEnergies = distributions.truncPowerLawRVs( parameter, lower, upper, size=numLocations )
-    elif distInfo[0] == 'exp':
-        parameter, lower, upper = distInfo[1:4]
-        spEnergies = -exponentialLaw( parameter, -upper, -lower, size=numLocations )
-    elif distInfo[0] == 'truncNorm':
-        distFunc = truncNorm
-        parameters, lower, upper = distInfo[1:]
-        mu = parameters[0]
-        sigma = parameters[1]
-        spEnergies = distributions.truncNorm( a=lower, b=upper, mu=mu, sigma=sigma, size=numLocations )
-
-    kdeReplicates = 1000
-
-    numTFs = 1
-    prefix = ''
-    if isinstance( pExt, float ) or isinstance( pExt, np.float64 ):
-        if pExt == 1.0:
-            prefix = 'ideal-'
-            print("Loading ideal ChIP-seq data")
-
-    fileName = '{}simulatedRatios-N{}-K{}-distInfo-{}-numTFs-{}-mu{}.npz'.format( prefix, numLocations, kdeReplicates, str(distInfo), numTFs, chemicalPotential )
-        
-    if not os.path.isfile( os.path.join( 'data', fileName ) ): 
-        simulatedRatios = generateChIPreplicates( spEnergies, kdeReplicates=kdeReplicates, pExt=pExt, chemicalPotential=chemicalPotential )
-
-        np.savez( os.path.join( 'data', fileName ), simulatedRatios=simulatedRatios, spEnergies=spEnergies, pExt=pExt )
-    else:
-        print("Loaded file {}".format( fileName ) )
-        archive = np.load( os.path.join( 'data', fileName ) )
-        simulatedRatios = archive['simulatedRatios']
-        spEnergies = archive['spEnergies']
-        pExt = archive['pExt']
-
-    nMCitr = 10000
-    posteriorData = {}
-
-    prefix = ''
-    if isinstance( pExt, float ) or isinstance( pExt, np.float64 ):
-        if pExt == 1.0:
-            prefix = 'ideal-'
-
-    dictFileName = '{}posteriorData-N{}-K{}-distInfo-{}-numTFs-{}-prior{}-mu{}.pickle'.format( prefix, numLocations, kdeReplicates, str(distInfo), numTFs, prior, chemicalPotential )
-
-    if makePlot:
-        posteriorIntervalSet = samplePosteriorSingleTF( 2, simulatedRatios, spEnergies,
-                                            numTrials=1, chemicalPotential=chemicalPotential,
-                                            prior=prior,pExt=pExt, priorParams=priorParams,
-                                            nMCitr=nMCitr,makePlot=True, maxReplicates=maxReplicates )
-    else:
-        numTrials = 100
-        for spEnergy in [2,3,4,5,6]:
-            posteriorIntervalSet = samplePosteriorSingleTF( spEnergy, simulatedRatios, spEnergies,
-                                            numTrials=numTrials,pExt=pExt, prior=prior, priorParams=priorParams,
-                                            chemicalPotential=chemicalPotential, nMCitr=nMCitr, maxReplicates=maxReplicates )
-
-            posteriorData[spEnergy] = posteriorIntervalSet
-
-            dictfile = open( os.path.join( 'data', dictFileName ), 'wb' )
-            pickle.dump( posteriorData, dictfile )
-            dictfile.close()
-
-def main():
-    singleTFmain(prior='powerLaw',maxReplicates=5,priorParams=[0.5,0,10])
-
-if __name__ == "__main__":
-    main()
+#if __name__ == "__main__":
+#    main()

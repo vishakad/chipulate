@@ -73,8 +73,9 @@ class PCR:
                 self.pcrDistCdf[str(pAmp)] = np.cumsum( self.computePCRdist( pAmp ) )
                 self.pcrDistQuantiles[pAmp] = np.searchsorted( self.pcrDistCdf[str(pAmp)], quantileSet )+1
 
-    def sampleFromPCRdist( self, fragmentCounts, singlePamp=None, returnPerFragment=False ):
-        N = len( fragmentCounts )
+    def sampleFromPCRdist( self, fragmentMat, singlePamp=None ):
+        numCells = fragmentMat.shape[0]
+        N = fragmentMat.shape[1]
 
         #In case there is no PCR heterogeneity in the genome, make a numpy array
         #where each location's PCR efficiency is set to the same value. 
@@ -83,55 +84,35 @@ class PCR:
         else:
             pAmps = makeArray( singlePamp, N )
 
-        fragmentCounts = makeArray( fragmentCounts, N )
-        fragmentCounts = fragmentCounts.astype( np.int )
-        amplifiedFragments = np.zeros_like( fragmentCounts )
+        amplifiedMat = np.zeros_like( fragmentMat )
+        totalFragments = fragmentMat.sum()
 
-        totalFragments = fragmentCounts.sum()
-
-        #If returnPerFragment is set to True, then the number of
-        #amplified fragments per extracted fragment is returned. 
-        #For example, if there are 3 genomic locations with
-        #the extracted fragment array being [2,3,4], then there
-        #are a total of 2 + 3 + 4 = 9 samples drawn from the PCR distribution.
-        #Suppose the PCR efficiencies in these three locations are [0.5,0.8,0.9],
-        #and the numbers of amplified fragments obtained from each of the 9
-        #extracted fragments are [1243,1522,644,3553,3421,2034,6735,7852,9425].
-        #When returnPerFragment is True, the perFragmentAmplified
-        #list returned is [ [1243,1522], [644,3553,3421], [2034,6735,7852,9425] ].
-        if returnPerFragment:
-            perFragmentAmplified = np.zeros( N, dtype=np.object )
-        else:
-            perFragmentAmplified = []
-
-        idx = 0 
         #As part of inverse sampling, we first draw quantiles between 1 and
         #self.nQuantiles with equal probability of choosing each value. 
         quantilesAll = np.random.randint( self.nQuantiles, size=totalFragments )
-        quantileIdx = 0
-        for fragmentCount in fragmentCounts:
-            #fragmentCount refers to the number of pre-PCR fragments at a single
-            #genomic location where the PCR efficiency is pAmps[idx].
-            quantiles = quantilesAll[quantileIdx:(quantileIdx+fragmentCount)] 
-            pcrCopies = 0
+        for cell in range(fragmentMat.shape[0]):
+            fragmentCounts = fragmentMat[cell,:]
+            quantileIdx = 0
+            idx = 0 
+            for fragmentCount in fragmentCounts:
+                #fragmentCount refers to the number of pre-PCR fragments at a single
+                #genomic location where the PCR efficiency is pAmps[idx].
+                quantiles = quantilesAll[quantileIdx:(quantileIdx+fragmentCount)] 
+                pcrCopies = 0
 
-            #We choose the quantiles of the PCR amplification distribution
-            #whose PCR efficiency correponds to pAmps[idx]. 
-            pcrQuantiles = self.pcrDistQuantiles[pAmps[idx]]
+                #We choose the quantiles of the PCR amplification distribution
+                #whose PCR efficiency correponds to pAmps[idx]. 
+                pcrQuantiles = self.pcrDistQuantiles[pAmps[idx]]
 
-            #Since pcrQuantiles stores the quantiles of the PCR distribution,
-            #the "quantiles" array can be used to directly simulate PCR. 
-            temp = pcrQuantiles[quantiles]
-            if returnPerFragment:
-                perFragmentAmplified[idx] = temp 
-            amplifiedFragments[idx] = temp.sum()
-            idx += 1
-            quantileIdx += fragmentCount
+                #Since pcrQuantiles stores the quantiles of the PCR distribution,
+                #the "quantiles" array can be used to directly simulate PCR. 
+                temp = pcrQuantiles[quantiles]
+                amplifiedMat[cell,idx] = temp.sum()
+                idx += 1
 
-        if returnPerFragment:
-            return [amplifiedFragments, perFragmentAmplified]
-        else:
-            return amplifiedFragments
+                quantileIdx += fragmentCount
+
+        return amplifiedMat
 
     def computePCRdist( self, pAmp ):
         """

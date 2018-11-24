@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
  
 class FragExtract:
-    def __init__( self, pExtControl, pExtChip, boundTable ):
+    def __init__( self, pExt, boundTable ):
         """
         The FragExtract class contains routines needed for simulating fragment
         extraction from a pool of bound fragments. 
@@ -25,23 +25,9 @@ class FragExtract:
         #pExtChip - Antibody efficiency/ChIP extraction efficieny -- What is the probability of a fragment that is bound by the TF
         #of interest being picked up by the antibody in the ChIP sample?
         #Default : 1 
-        self.pExtChip = pExtChip
- 
-        #pExtControl - Probability of extracting a fragment from the control sample. 
-        self.pExtControl = pExtControl
- 
-        #extractedTable is a pandas dataframe that stores the number of 
-        #extracted fragments in the ChIP and input samples at each genomic location.
-        self.extractedTable = pd.DataFrame()
-        self.extractedTable.loc[:,'name'] = boundTable.locations['name'].values
-             
-        self.N = boundTable.locations.shape[0]
- 
-        #The extracted fragments are binomially sampled from bound fragments.
-        extControlFragments = binom.rvs( boundTable.locations['control_fragments'], self.pExtControl, size=self.N )
+        self.pExt = pExt
 
-        self.extractedTable.loc[:,'ext_control_fragments'] = extControlFragments
+        self.fragmentMat = np.zeros_like( boundTable.fragmentMat )
+        for row in range(boundTable.fragmentMat.shape[0]):
+            self.fragmentMat[row,:] = binom.rvs( boundTable.fragmentMat[row,:], self.pExt )
  
-        extChipFragments = binom.rvs( boundTable.locations['chip_fragments'], self.pExtChip, size=self.N )
-            
-        self.extractedTable.loc[:,'ext_chip_fragments'] = extChipFragments

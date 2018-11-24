@@ -4,55 +4,17 @@ import numpy as np
 import pandas as pd
 
 class ChipSeq:
-    def __init__( self, genomeBindingTable, fragExtract, pcr, nChipReads=-1, nControlReads=-1 ):
+    def __init__( self, fragExtract, pcr, nReads=-1 ):
         """
         The ChipSeq class ties together all the other classes in the simulation.
         The class contain two key dataframes that contain the number of
         amplified fragments (amplifiedTable) and the number of reads
         (readsTable) for each genomic location.
         """
-        self.amplifiedTable = pd.DataFrame( {'name' : fragExtract.extractedTable['name'].values} ) 
-        self.readsTable = pd.DataFrame( {'name' : fragExtract.extractedTable['name'].values} ) 
-        self.controlFragmentLocationMatrix = []
-        self.chipFragmentLocationMatrix = []
-        self.controlReadsLocationMatrix = []
-        self.chipReadsLocationMatrix = []
-        self.perControlAmplified = []
-        self.perChipAmplified = []
-        self.bindingTable = genomeBindingTable
+        amplifiedMat = self.pcrAmplify( fragExtract, pcr )
+        self.uniqueMat = self.sampleReads( amplifiedMat, nReads )
 
-        fragExtract = self.downsampleControl(fragExtract)
-
-        self.amplifiedTable.loc[:,'amp_control_fragments'], self.perControlAmplified = self.pcrAmplify( fragExtract, pcr, 'control' )
-        self.readsTable.loc[:,'unique_control_reads'], self.readsTable.loc[:,'control_reads'] = self.sampleReads( fragExtract, 'control', nControlReads )
-
-        self.amplifiedTable.loc[:,'amp_chip_fragments'], self.perChipAmplified = self.pcrAmplify( fragExtract, pcr, 'chip' )
-        self.readsTable.loc[:,'unique_chip_reads'], self.readsTable.loc[:,'chip_reads'] = self.sampleReads( fragExtract, 'chip', nChipReads )
-
-    def downsampleControl( self, fragExtract ):
-        """
-        This function downsamples either the number of control fragments or number of
-        ChIP fragments to ensure that their total numbers are equal.
-        """
-        #If there are more fragments in the input sample than in the ChIP sample
-        if fragExtract.extractedTable['ext_control_fragments'].sum() > fragExtract.extractedTable['ext_chip_fragments'].sum():
-            downsampling = fragExtract.extractedTable['ext_chip_fragments'].sum()*1.0/fragExtract.extractedTable['ext_control_fragments'].sum()
-            extControlFragments = scipy.stats.binom.rvs( fragExtract.extractedTable['ext_control_fragments'], downsampling, size=fragExtract.extractedTable.shape[0] )
-
-            fragExtract.extractedTable.loc[:,'ext_control_fragments'] = extControlFragments
-        else:
-            #If there are more fragments in the ChIP sample than the input sample.
-            downsampling = fragExtract.extractedTable['ext_control_fragments'].sum()*1.0/fragExtract.extractedTable['ext_chip_fragments'].sum()
-            extChipFragments = scipy.stats.binom.rvs( fragExtract.extractedTable['ext_chip_fragments'], downsampling, size=fragExtract.extractedTable.shape[0] )
-
-            if len(extChipFragments) < fragExtract.extractedTable.shape[0]:
-                extChipFragments = np.append( extChipFragments, np.zeros( fragExtract.extractedTable.shape[0] - len(extChipFragments) ) )
-
-            fragExtract.extractedTable.loc[:,'ext_chip_fragments'] = extChipFragments
-
-        return fragExtract
-
-    def pcrAmplify( self, fragExtract, pcr, fragmentSetStr ):
+    def pcrAmplify( self, fragExtract, pcr ):
         """
         This function calls the PCR sampleFromPCRdist() routine to simulate PCR
         amplification of extracted fragments in both ChIP and control samples.
@@ -69,61 +31,35 @@ class ChipSeq:
         depending on whether amplification is being simulated on fragments in
         the ChIP or input sample, respectively.
         """
-        fragmentCounts = fragExtract.extractedTable['ext_{}_fragments'.format( fragmentSetStr )]
-        numLocations = fragExtract.extractedTable.shape[0]
+        amplifiedMat = pcr.sampleFromPCRdist( fragExtract.fragmentMat )
+        amplifiedMat = np.ndarray.astype(amplifiedMat, dtype=np.uint32)
 
-        amplified, perFragmentAmplified = pcr.sampleFromPCRdist( fragmentCounts, returnPerFragment=True )
-        amplified = np.ndarray.astype(amplified, dtype=np.int64)
+        return amplifiedMat
 
-        return [amplified, perFragmentAmplified]
-
-    def sampleReads( self, fragExtract, fragmentSetStr, nReads ):
+    def sampleReads( self, amplifiedMat, nReads ):
         """
         This function samples nReads from the amplified fragments in the ChIP
         and control samples and returns the total and unique number of reads at
         each location.
         """
-        if fragmentSetStr == 'control':
-            perFragmentAmplified = self.perControlAmplified
-        else:
-            perFragmentAmplified = self.perChipAmplified
+        numLocations = amplifiedMat.shape[1]
+        uniqueMat = np.zeros_like( amplifiedMat )
 
-        amplified = self.amplifiedTable['amp_{}_fragments'.format( fragmentSetStr )].values
-        amplified = np.ndarray.astype(amplified, dtype=np.int64)
-        unamplified = fragExtract.extractedTable['ext_{}_fragments'.format( fragmentSetStr )]
+        for cell in range(amplifiedMat.shape[0]):
+            totalAmplified = amplifiedMat[cell,:].sum()
+            amplified = amplifiedMat[cell,:]
 
-        totalAmplified = amplified.sum()
-        N = len( amplified )
-
-        if totalAmplified > nReads:
-            #Sample nReads from across all genomic locations such that each
-            #amplified fragment has an equal probability of being chosen.
-            readSample = hyperGeomSample( amplified, nReads )
-        else:
-            print("WARNING : The number of amplified fragments is less than the total read count. This can happen if the extraction efficiency, number of cells, or the PCR efficiency is too low.  Conversely, the total read count is perhaps too high given the other parameters.")
-            readSample = amplified
-
-        uniques = np.zeros( N, dtype=np.int )
-        duplicates = np.zeros( N, dtype=np.int )
-
-        #See the Methods section in the manuscript for details on how reads 
-        #are sampled from the pool of amplified fragments.
-        for i in range( N ):
-            if readSample[i] > 0:
-                locsToChoose = hyperGeomSample( perFragmentAmplified[i], readSample[i] )
-                mask = locsToChoose >= 1
-                uniques[i] = np.sum( mask, dtype=np.int )
+            if totalAmplified > nReads[cell]:
+                #Sample nReads from across all genomic locations such that each
+                #amplified fragment has an equal probability of being chosen.
+                readSample = hyperGeomSample( amplified, nReads[cell] )
             else:
-                uniques[i] = 0
+                print("WARNING : The number of amplified fragments is less than the total read count. This can happen if the extraction efficiency, number of cells, or the PCR efficiency is too low.  Conversely, the total read count is perhaps too high given the other parameters.")
+                readSample = amplified
 
-        uniques = np.ndarray.astype(uniques,dtype=np.int64)
+            uniqueMat[cell,:] = readSample > 0
 
-        if fragmentSetStr == 'chip':
-            num = self.amplifiedTable.shape[0]
-            uniques = np.append( uniques, np.zeros( num - len(uniques), dtype=np.int64 ) )
-            readSample = np.append( readSample, np.zeros( num - len(readSample), dtype=np.int64 ) )
-
-        return [uniques,readSample] 
+        return uniqueMat
 
 def hyperGeomSample( binCounts, totalDrawSize ):
     """
