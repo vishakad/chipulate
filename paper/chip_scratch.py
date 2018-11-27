@@ -317,20 +317,31 @@ def performChipSeq( numCells=1000, nReads=100, ampRatio=1000, pExt=1.0, pcrCycle
     
     return chipSeq.uniqueMat
 
-def posteriorEstimate( readMat ):
-    numLocations = readMat.shape[1]
+def posteriorEstimate( readMat, priorParams, posteriorDist='beta', posteriorAlpha=0.95 ):
     numCells = readMat.shape[0]
-    beta = numCells
 
-    alphaPrior = 5 * np.ones( numLocations )
-    betaPrior = 10 * np.ones( numLocations )
+    if posteriorDist in ['beta','gamma-sc','gamma-bulk']:
+        alphaPrior, betaPrior = priorParams
+        totalReadsPerLocation = readMat.sum(axis=0)
 
-    alphaNew = alphaPrior + readMat.sum(axis=0)
-    betaNew = betaPrior/( betaPrior * numCells + 1 )
+    if posteriorDist == 'beta':
+        alphaUpdated = alphaPrior + totalReadsPerLocation
+        betaUpdated = betaPrior + numCells - totalReadsPerLocation
+        intervals = scipy.stats.beta.interval( posteriorAlpha, alphaUpdated, betaUpdated )
+        medians = scipy.stats.beta.median( alphaUpdated, betaUpdated )
+    elif posteriorDist == 'gamma-sc':
+        alphaUpdated = alphaPrior + totalReadsPerLocation
+        betaUpdated = betaPrior/(numCells * betaPrior + 1)        #Reciprocal needed when using scipy.stats.gamma
+        intervals = scipy.stats.gamma.interval( posteriorAlpha, alphaUpdated, loc=0, scale=betaUpdated )
+        medians = scipy.stats.gamma.median( alphaUpdated, loc=0, scale=betaUpdated )
+    elif posteriorDist == 'gamma-bulk':
+        alphaUpdated = alphaPrior + totalReadsPerLocation
+        betaUpdated = betaPrior/(betaPrior + 1)        #Reciprocal needed when using scipy.stats.gamma
+        intervals = scipy.stats.gamma.interval( posteriorAlpha, alphaUpdated, loc=0, scale=betaUpdated )
+        medians = scipy.stats.gamma.median( alphaUpdated, loc=0, scale=betaUpdated )
 
-    return [alphaNew,betaNew]
+    return [intervals,medians]
      
-
 #def main():
 #    singleTFmain(prior='powerLaw',maxReplicates=5,priorParams=[0.5,0,10])
 
