@@ -103,3 +103,27 @@ def hyperGeomSample( binCounts, totalDrawSize ):
         idx += 1
 
     return sample
+
+def hyperGeomSample2( binCounts, totalDrawSize ):
+    """
+    Draw samples from a multi-variate hypergeometric distribution.
+
+    Inputs ---
+    1) binCounts --- An array of n values M1,M2,...,Mn where Mi is the number of
+    objects in the i-th bin.
+    2) totalDrawSize --- The total number of objects to be sampled.
+
+    Returns an array of n value that represent the number of objects sampled
+    from each bin.
+    """
+    totalCount = np.sum( binCounts )
+    choices = np.random.choice( totalCount, replace=False, size=totalDrawSize )
+    sample = np.zeros_like( binCounts )
+
+    cumBinCounts = np.append( [0], np.cumsum( binCounts ) )
+    for idx in range(len(binCounts)):
+        lb = cumBinCounts[idx]
+        ub = cumBinCounts[idx+1]
+        sample[idx] = np.count_nonzero( (choices >= lb) & (choices < ub) )
+
+    return sample

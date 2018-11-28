@@ -342,8 +342,20 @@ def posteriorEstimate( readMat, priorParams, posteriorDist='beta', posteriorAlph
 
     return [intervals,medians]
      
-#def main():
-#    singleTFmain(prior='powerLaw',maxReplicates=5,priorParams=[0.5,0,10])
+def main():
+    numLocations = 300
+    accessibility = sampleAccessibility( 1, numSamples=numLocations )
+    accessibility.sort()
+    accessibility = accessibility[::-1]
+    pExt = 1
 
-#if __name__ == "__main__":
-#    main()
+    #readsByCell = 50
+    numCells = 3000
+    readsByCell = 10 + 390 * np.random.random( size=numCells )
+    readsByCell = readsByCell.astype(np.uint)
+
+    #uniqueMat is a matrix of dimension (# cells x # locations)
+    uniqueMat = performChipSeq( chromAccessibility=accessibility, numCells=numCells, ampRatio=500, pExt=pExt, nReads=readsByCell )
+
+if __name__ == "__main__":
+    main()
