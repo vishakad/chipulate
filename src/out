@@ -1,0 +1,170 @@
+0: (2,2)
+1: (1,3)
+2: (3,6)
+3: (5,11)
+4: (1,12)
+5: (2,14)
+Value sampled : 14
+5
+Population sampled from : 5
+----------------------
+0: (2,2)
+1: (1,3)
+2: (3,6)
+3: (5,11)
+4: (1,12)
+5: (2,14)
+Value sampled : 13
+5
+Population sampled from : 5
+----------------------
+0: (2,2)
+1: (1,3)
+2: (3,6)
+3: (5,11)
+4: (1,12)
+5: (2,14)
+Value sampled : 12
+Mid : 0
+Mid : 2
+Mid : 3
+4
+Population sampled from : 4
+----------------------
+0: (2,2)
+1: (1,3)
+2: (3,6)
+3: (5,11)
+4: (1,12)
+5: (2,14)
+Value sampled : 11
+Mid : 0
+Mid : 2
+3
+Population sampled from : 3
+----------------------
+0: (2,2)
+1: (1,3)
+2: (3,6)
+3: (5,11)
+4: (1,12)
+5: (2,14)
+Value sampled : 10
+Mid : 0
+Mid : 2
+Mid : 3
+Mid : 2
+3
+Population sampled from : 3
+----------------------
+0: (2,2)
+1: (1,3)
+2: (3,6)
+3: (5,11)
+4: (1,12)
+5: (2,14)
+Value sampled : 9
+Mid : 0
+Mid : 2
+Mid : 3
+Mid : 2
+3
+Population sampled from : 3
+----------------------
+0: (2,2)
+1: (1,3)
+2: (3,6)
+3: (5,11)
+4: (1,12)
+5: (2,14)
+Value sampled : 8
+Mid : 0
+Mid : 2
+Mid : 3
+Mid : 2
+3
+Population sampled from : 3
+----------------------
+0: (2,2)
+1: (1,3)
+2: (3,6)
+3: (5,11)
+4: (1,12)
+5: (2,14)
+Value sampled : 7
+Mid : 0
+Mid : 2
+Mid : 3
+Mid : 2
+3
+Population sampled from : 3
+----------------------
+0: (2,2)
+1: (1,3)
+2: (3,6)
+3: (5,11)
+4: (1,12)
+5: (2,14)
+Value sampled : 6
+Mid : 0
+2
+Population sampled from : 2
+----------------------
+0: (2,2)
+1: (1,3)
+2: (3,6)
+3: (5,11)
+4: (1,12)
+5: (2,14)
+Value sampled : 5
+Mid : 0
+Mid : 2
+Mid : 1
+2
+Population sampled from : 2
+----------------------
+0: (2,2)
+1: (1,3)
+2: (3,6)
+3: (5,11)
+4: (1,12)
+5: (2,14)
+Value sampled : 4
+Mid : 0
+Mid : 2
+Mid : 1
+2
+Population sampled from : 2
+----------------------
+0: (2,2)
+1: (1,3)
+2: (3,6)
+3: (5,11)
+4: (1,12)
+5: (2,14)
+Value sampled : 3
+Mid : 0
+Mid : 2
+1
+Population sampled from : 1
+----------------------
+0: (2,2)
+1: (1,3)
+2: (3,6)
+3: (5,11)
+4: (1,12)
+5: (2,14)
+Value sampled : 2
+0
+Population sampled from : 0
+----------------------
+0: (2,2)
+1: (1,3)
+2: (3,6)
+3: (5,11)
+4: (1,12)
+5: (2,14)
+Value sampled : 1
+0
+Population sampled from : 0
+----------------------
