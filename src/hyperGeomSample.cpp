@@ -2,7 +2,6 @@
 #include <iostream>
 #include <array>
 
-//TODO : Stop altering binCounts.
 //TODO : De-alloc cumBinCounts when finished.
 unsigned int* hyperGeomSample( std::vector<unsigned int> binCounts,  unsigned int totalDrawSize ) {
     unsigned int totalPopnSize = 0;
@@ -57,7 +56,6 @@ unsigned int* hyperGeomSample( std::vector<unsigned int> binCounts,  unsigned in
 	    }
 	}
 
-//	--binCounts[popnSampledFrom];
 	++sample[popnSampledFrom];
 	--totalPopnSize;
 
@@ -65,9 +63,6 @@ unsigned int* hyperGeomSample( std::vector<unsigned int> binCounts,  unsigned in
 	    cumBinCounts[j]--;
 
     }
-
-/*    for (int j = 0; j < numBins; j++ )
-	std::cout << binCounts[j] << std::endl;*/
 
     for (int j = 0; j < numBins; j++ )
 	std::cout << sample[j] << std::endl;
