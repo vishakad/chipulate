@@ -4,6 +4,7 @@ Inputs ---
 3) Tab-separated file containing chromosome coordinates, occupancies of false positive regions. (optional)
 4) Read length (default : 42 bp)  
 5) Single-end or paired-end (optional. default : single-end)
+6) Fragment length (default : 300bp. Allow distributions too by specifying a filename). 
 
 
 
