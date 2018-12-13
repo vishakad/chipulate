@@ -1,0 +1,9 @@
+Inputs ---
+1) Genome file (required)
+2) Tab-separated file BED file containing chromosome coordinates, occupancies of true positive regions. (required)
+3) Tab-separated file containing chromosome coordinates, occupancies of false positive regions. (optional)
+4) Read length (default : 42 bp)  
+5) Single-end or paired-end (optional. default : single-end)
+
+
+
