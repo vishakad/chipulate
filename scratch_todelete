@@ -6,5 +6,17 @@ Inputs ---
 5) Single-end or paired-end (optional. default : single-end)
 6) Fragment length (default : 300bp. Allow distributions too by specifying a filename). 
 
+Unsure : 
+To what extent do I rely on PWM inputs?
+If yes,
+Option (1)
+-> Find a conversion factor between motif scores and energies.
 
+Option (2)
+-> Find motif matches. Set a cut-off score. Consider +/- 200 bp around each site. Merge overlapping regions.   
+    
+Danger with both options (1) and (2) is that you could end up with occupancy probabilities that are very
+small. This necessitates increasing the number of cells in the simulation, which in turn really
+slows things down. 
 
+So I will have to port the amplification and sequencing steps over to C++. 
