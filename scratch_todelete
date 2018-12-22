@@ -17,6 +17,6 @@ Option (2)
     
 Danger with both options (1) and (2) is that you could end up with occupancy probabilities that are very
 small. This necessitates increasing the number of cells in the simulation, which in turn really
-slows things down. 
+slows things down. Also, option (2) requires more detailed partition function calculations for real genomes. 
 
 So I will have to port the amplification and sequencing steps over to C++. 
