@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 class ChipSeq:
-    def __init__( self, genomeBindingTable, fragExtract, pcr, nChipReads=-1, nControlReads=-1 ):
+    def __init__( self, genomeBindingTable, fragExtract, pcr, nChipReads=-1, nControlReads=-1, generateIntervals=True ):
         """
         The ChipSeq class ties together all the other classes in the simulation.
         The class contain two key dataframes that contain the number of
@@ -24,10 +24,10 @@ class ChipSeq:
         fragExtract = self.downsampleControl(fragExtract)
 
         self.amplifiedTable.loc[:,'amp_control_fragments'], self.perControlAmplified = self.pcrAmplify( fragExtract, pcr, 'control' )
-        self.readsTable.loc[:,'unique_control_reads'], self.readsTable.loc[:,'control_reads'] = self.sampleReads( fragExtract, 'control', nControlReads )
+        self.readsTable.loc[:,'unique_control_reads'], self.readsTable.loc[:,'control_reads'], self.controlFragmentNumbers = self.sampleReads( fragExtract, 'control', nControlReads, generateIntervals )
 
         self.amplifiedTable.loc[:,'amp_chip_fragments'], self.perChipAmplified = self.pcrAmplify( fragExtract, pcr, 'chip' )
-        self.readsTable.loc[:,'unique_chip_reads'], self.readsTable.loc[:,'chip_reads'] = self.sampleReads( fragExtract, 'chip', nChipReads )
+        self.readsTable.loc[:,'unique_chip_reads'], self.readsTable.loc[:,'chip_reads'], self.chipFragmentNumbers = self.sampleReads( fragExtract, 'chip', nChipReads, generateIntervals )
 
     def downsampleControl( self, fragExtract ):
         """
@@ -77,7 +77,7 @@ class ChipSeq:
 
         return [amplified, perFragmentAmplified]
 
-    def sampleReads( self, fragExtract, fragmentSetStr, nReads ):
+    def sampleReads( self, fragExtract, fragmentSetStr, nReads, generateIntervals ):
         """
         This function samples nReads from the amplified fragments in the ChIP
         and control samples and returns the total and unique number of reads at
@@ -106,15 +106,28 @@ class ChipSeq:
         uniques = np.zeros( N, dtype=np.int )
         duplicates = np.zeros( N, dtype=np.int )
 
+        if generateIntervals:
+            fragmentNumbers = np.zeros( nReads, dtype=np.int )
+        else:
+            fragmentNumbers = []
+
         #See the Methods section in the manuscript for details on how reads 
         #are sampled from the pool of amplified fragments.
+        uniqueReadIdx = 0
         for i in range( N ):
             if readSample[i] > 0:
                 locsToChoose = hyperGeomSample( perFragmentAmplified[i], readSample[i] )
                 mask = locsToChoose >= 1
                 uniques[i] = np.sum( mask, dtype=np.int )
+                if generateIntervals:
+                    fragmentNumbers[uniqueReadIdx:(uniqueReadIdx+uniques[i])] = locsToChoose[mask]
             else:
                 uniques[i] = 0
+
+            uniqueReadIdx += uniques[i]
+
+        if generateIntervals:
+            fragmentNumbers = fragmentNumbers[:uniqueReadIdx]
 
         uniques = np.ndarray.astype(uniques,dtype=np.int64)
 
@@ -123,7 +136,7 @@ class ChipSeq:
             uniques = np.append( uniques, np.zeros( num - len(uniques), dtype=np.int64 ) )
             readSample = np.append( readSample, np.zeros( num - len(readSample), dtype=np.int64 ) )
 
-        return [uniques,readSample] 
+        return [uniques,readSample,fragmentNumbers] 
 
 def hyperGeomSample( binCounts, totalDrawSize ):
     """
