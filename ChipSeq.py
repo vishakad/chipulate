@@ -107,9 +107,9 @@ class ChipSeq:
         duplicates = np.zeros( N, dtype=np.int )
 
         if generateIntervals:
-            fragmentNumbers = np.zeros( nReads, dtype=np.int )
+            readsToDuplicate = np.zeros( nReads, dtype=np.int )
         else:
-            fragmentNumbers = []
+            readsToDuplicate = []
 
         #See the Methods section in the manuscript for details on how reads 
         #are sampled from the pool of amplified fragments.
@@ -120,14 +120,14 @@ class ChipSeq:
                 mask = locsToChoose >= 1
                 uniques[i] = np.sum( mask, dtype=np.int )
                 if generateIntervals:
-                    fragmentNumbers[uniqueReadIdx:(uniqueReadIdx+uniques[i])] = locsToChoose[mask]
+                    readsToDuplicate[uniqueReadIdx:(uniqueReadIdx+uniques[i])] = locsToChoose[mask]
             else:
                 uniques[i] = 0
 
             uniqueReadIdx += uniques[i]
 
         if generateIntervals:
-            fragmentNumbers = fragmentNumbers[:uniqueReadIdx]
+            readsToDuplicate = readsToDuplicate[:uniqueReadIdx]
 
         uniques = np.ndarray.astype(uniques,dtype=np.int64)
 
@@ -136,7 +136,7 @@ class ChipSeq:
             uniques = np.append( uniques, np.zeros( num - len(uniques), dtype=np.int64 ) )
             readSample = np.append( readSample, np.zeros( num - len(readSample), dtype=np.int64 ) )
 
-        return [uniques,readSample,fragmentNumbers] 
+        return [uniques,readSample,readsToDuplicate] 
 
 def hyperGeomSample( binCounts, totalDrawSize ):
     """

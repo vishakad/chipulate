@@ -155,6 +155,10 @@ class MotifTable:
             np.save( outputEnergiesFile, allEnergies, allow_pickle=False )
             np.save( outputSequencesFile, allSequences, allow_pickle=False )
 
+        if np.sum( energies < self.minEnergy ) > 0:
+            print("{} sequences whose energies are less than {} have been set to {}".format( np.sum( energies < self.minEnergy ), self.minEnergy, self.minEnergy ) )
+            energies[energies < self.minEnergy] = self.minEnergy
+
         mask = (energies >= self.minEnergy ) & (energies <= self.maxEnergy)
         if np.sum(~mask) > 0:
             print("{} sequences whose energies lie outside the range [{},{}] cannot be generated".format( np.sum(~mask), self.minEnergy, self.maxEnergy ))

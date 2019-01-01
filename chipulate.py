@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 import argparse
+import pybedtools
 
 def makeArray( val, N ):
     if type( val ) is list:
@@ -24,7 +25,7 @@ def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100,
                    pExt=1.0, pAmp=0.58, pcrCycles=15, bgEnergy=1,
                    chemicalPotential=3, secondTFspEnergies=[],
                    secondTFchemicalPotential=0, chromAccessibility=[],
-                   secondTFintEnergies=[], indirectLocations=[], controlCellRatio=1.0 ):
+                   secondTFintEnergies=[], indirectLocations=[], controlCellRatio=1.0, generateIntervals=True ):
     """
     This function combines the GenomeBindingTable,FragExtract,PCR and ChIPseq
     classes together and returns a dataframe that contains read counts at
@@ -166,14 +167,90 @@ def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100,
 
     chipSeq = ChipSeq.ChipSeq( table, fragExtract, pcrObj, 
                               nControlReads=numControlReads,
-                              nChipReads=numChipReads )
+                              nChipReads=numChipReads, generateIntervals=generateIntervals )
     
     genome = table.locations.merge( chipSeq.readsTable )
     genome = genome.merge( chipSeq.amplifiedTable )
     genome = genome.merge( fragExtract.extractedTable )
     genome.loc[:,'read_count_ratio'] = genome.eval('unique_chip_reads/unique_control_reads')
 
-    return genome
+    return [genome,chipSeq.chipFragmentNumbers,chipSeq.controlFragmentNumbers]
+
+def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, fragmentLength=200, readLength=42, fragmentJitter=20, outputDir=""  ):
+    fileNames = []
+    for (fileName,fragmentStr,readsToDuplicate) in zip(['chip_reads.bed','control_reads.bed'],['chip_reads','control_reads'],[chipFragmentNumbers,controlFragmentNumbers]):
+        numFragments = genome[fragmentStr].sum()
+        uniqueFragmentStr = 'unique_' + fragmentStr
+        numUniqueFragments = genome[uniqueFragmentStr].sum()
+
+        readsDf = pd.DataFrame( )
+        readsDf.loc[:,'chr'] = np.zeros( numFragments, dtype=np.object )
+        readsDf.loc[:,'start'] = np.zeros( numFragments, dtype=np.int64 )
+        readsDf.loc[:,'end'] = np.zeros( numFragments, dtype=np.int64 )
+        readsDf.loc[:,'name'] = np.zeros( numFragments, dtype=np.object )
+        readsDf.loc[:,'score'] = np.ones( numFragments, dtype=np.int )
+        readsDf.loc[:,'strand'] = np.zeros( numFragments, dtype=np.object )
+
+        readIdx = 0
+        uniqueStrand = np.zeros( numUniqueFragments, dtype=np.object )
+        uniqueStrandRand = np.random.random( size=numUniqueFragments )
+        posStrand = uniqueStrandRand >= 0.5
+        negStrand = ~posStrand
+        uniqueStrand[posStrand] = '+'
+        uniqueStrand[negStrand] = '-'
+
+        regionNames = bedDf['name'].values
+        if fragmentStr == 'chip_reads':
+            uniqueFragmentMidPoints = np.repeat( bedDf['start'].values + bedDf['summit'].values, genome[uniqueFragmentStr])
+            uniqueFragmentStartPos = np.random.normal( uniqueFragmentMidPoints, fragmentJitter, size=numUniqueFragments ).astype(np.int64)
+        elif fragmentStr == 'control_reads':
+            uniqueFragmentMidPoints = np.repeat( bedDf['start'].values, genome[uniqueFragmentStr] )
+            lengths = bedDf['end'].values - bedDf['start'].values
+            lengths = np.repeat( lengths, genome[uniqueFragmentStr] )
+            uniqueFragmentStartPos = np.int64( uniqueFragmentMidPoints + lengths * np.random.random( size=numUniqueFragments ) )
+        
+        uniqueReadNames = np.zeros( numUniqueFragments, dtype=np.object ) 
+        idx = 0
+        for (loc,count) in zip(range(bedDf.shape[0]),genome[uniqueFragmentStr]):
+            uniqueReadNames[idx:(idx+count)] = [regionNames[loc] + '_read_{}'.format( num ) for num in np.arange(1,count+1)]
+            idx += count
+            
+        fragmentStartPos = np.repeat( uniqueFragmentStartPos.astype(np.int64), readsToDuplicate )
+        strand = np.repeat( uniqueStrand, readsToDuplicate )
+        readNames = np.repeat( uniqueReadNames, readsToDuplicate )
+
+        posStrand = strand == '+'
+        negStrand = ~posStrand
+
+        readsDf.loc[:,'chr'] = np.repeat( bedDf['chr'].values, genome[fragmentStr].values )
+        readsDf = readsDf.merge( chromSizesDf, on='chr' )
+
+        readsDf.loc[:,'strand'] = strand
+        readsDf.loc[:,'name'] = readNames
+        readsDf.loc[posStrand,'start'] = np.maximum( 1, fragmentStartPos[posStrand] )
+        readsDf.loc[posStrand,'end'] = fragmentStartPos[posStrand] + readLength - 1
+        readsDf.loc[negStrand,'start'] = fragmentStartPos[negStrand] + fragmentLength - readLength
+        readsDf.loc[negStrand,'end'] = fragmentStartPos[negStrand] + fragmentLength - 1
+
+        if len( outputDir ) == 0:
+            fileNames.append( fileName )
+        else:
+            fileNames.append( '{}.{}'.format( outputDir, fileName ) )
+
+        readsDf[['chr','start','end','name','score','strand']].to_csv( fileNames[-1],sep="\t",index=False,header=False)
+
+    return fileNames
+
+def makeFasta( bedFileNames, genomeFileName, outputDir="" ):
+    for bedFileName in bedFileNames:
+        fastaFileName = bedFileName[:-4] + '.fa'
+        regionsFile = pybedtools.BedTool( bedFileName ).getfasta( fi=genomeFileName, bed=bedFileName, s=True, name=True )
+
+        print( fastaFileName )
+        if outputDir == "":
+            regionsFile.save_seqs( fastaFileName )
+        else:
+            regionsFile.save_seqs( '{}.{}'.format( outputDir, fastaFileName ) )
 
 parser = argparse.ArgumentParser(description='The ChIPulate pipeline for\
                                  simulating read counts in a ChIP-seq experiment', 
@@ -232,18 +309,22 @@ parser.add_argument( '-i', '--input-file', help='File name of a tab-separated fi
                     <p_ext> <p_amp> <binding_energy_A>    <|binding_energy_B|> <|binding_type|> <|interaction energy|> <|sequence|> <|chrom_accessibility|>, where \
                     the columns enclosed in |..| are optional. See README for more information on each column.', type=str, required=True )
 
-parser.add_argument( '-o', '--output-prefix', help='Prefix of the output file. The\
-                   output is a tab separated file that lists the following\
-                    columns --- <chip_reads> <unique_chip_reads> <control_reads>\
-                    <unique_control_reads>. See README for more information on\
-                    each column.', type=str, required=False, default=None )
+chromSizesFileName = ""
+parser.add_argument( '--chrom-size-file', help='File containing sizes of each chromosome. This argument is ignored when the chr, start and end columns are not specified in the input file. If these columns are specified, a tab-separated file where the first two columns contain the chromosome name and size, respectively, must be supplied. ', type=str, required=False, default=chromSizesFileName )
+
+genomeFileName = ""
+parser.add_argument( '-g', '--genome-file', help='File containing a genome sequence in FASTA format. If FASTA output is requested (by specifying the chr, start and end columns in the input file), a single FASTA file containing the genome sequence must be specified. If chr, start and end columns are not specified in the input, then this argument is ignored.', type=str, required=False, default=genomeFileName )
+
+parser.add_argument( '-o', '--output-prefix', help='Prefix of the output file. The\ output is a tab separated file that lists the following\ columns --- <chip_reads> <unique_chip_reads> <control_reads>\ <unique_control_reads>. See README for more information on\ each column.', type=str, required=False, default=None )
+
+parser.add_argument( '--output-dir', help='Directory to which all output should be written. Ensure that you have write privileges to this directory.', type=str, required=False, default=None )
 
 args = parser.parse_args()
 
 def validateInput( df ):
     numLocations = df.shape[0]
     terminateFlag = False
-    allowedColumnNames = ['p_ext','p_amp','energy_A','energy_B','sequence','binding_type','int_energy']
+    allowedColumnNames = ['chr','start','end','name','summit','p_ext','p_amp','energy_A','energy_B','sequence','binding_type','int_energy']
     hasOnlyNaNs = []
 
     #Check column names
@@ -329,8 +410,13 @@ def main():
         outputFileName = args.output_prefix + '.chipulate.out'
         outputPrefix = args.output_prefix
 
-    diagOutputFileName = outputPrefix + '.chipulate.diag_output'
-    runInfoOutputFileName = outputPrefix + '.chipulate.run_info'
+    if args.output_dir is None:
+        outputDir = outputPrefix
+    else:
+        outputDir = os.path.join( args.output_dir, outputPrefix )
+
+    diagOutputFileName = outputDir + '.chipulate.diag_output'
+    runInfoOutputFileName = outputDir + '.chipulate.run_info'
 
     depth = args.depth
     numCells = args.num_cells
@@ -339,12 +425,15 @@ def main():
     pcrCycles = args.pcr_cycles
     controlCellRatio = args.control_cell_fraction
     inputBgEnergy = args.input_bg
+    chromSizesFileName = args.chrom_size_file
+    genomeFileName = args.genome_file
 
     #inputDf = pd.read_csv( inputFileName, sep="\t", skiprows=1, names=['p_ext','p_amp','energy_A','sequence','binding_type','energy_B','int_energy','chrom_accessibility'])
     inputDf = pd.read_csv( inputFileName, sep="\t" )
     numLocations = inputDf.shape[0]
 
     terminateFlag, inputDf = validateInput( inputDf ) 
+
     if terminateFlag:
         print("Error encountered in input. Aborting.")
         return 0
@@ -375,7 +464,43 @@ def main():
     else:
         chromAccessibility = []
 
-    outputDf = performChipSeq( sequences=sequences, spEnergies=spEnergies,
+    bedCols = []
+    if 'chr' in inputDf.columns and 'start' in inputDf.columns and 'end' in inputDf.columns:
+        generateIntervals = True
+        bedCols = ['chr','start','end','name','summit','strand']
+
+        #Assign random summits to each region.
+        if 'summit' not in inputDf.columns:
+            starts = inputDf['start'].values
+            ends = inputDf['end'].values
+            inputDf.loc[:,'summit'] = np.int64( (ends - starts) * np.random.random( size=inputDf.shape[0] ) )
+
+        inputDf.loc[:,'strand'] = '.'
+    else:
+        generateIntervals = False
+
+    if generateIntervals:
+        if len(chromSizesFileName) == 0:
+            print("A chrom.sizes file should be passed in order to generate BED/FASTA output. Exiting.")
+            return 0
+        elif not os.path.isfile(chromSizesFileName):
+            print("The chrom.sizes file at {} could not be found. Exiting.".format(chromSizesFileName))
+            return 0
+        else:
+            chromSizesDf = pd.read_table( chromSizesFileName, sep="\t", header=None )
+            if not np.issubdtype( chromSizesDf[1].dtype, np.number ):
+                print( "Second column of chrom.sizes file should contain numeric data.Exiting." )
+
+            chromSizesDf = chromSizesDf[[0,1]].rename( {0 : 'chr', 1 : 'max'}, axis=1 )
+
+        if len(genomeFileName) == 0:
+            print("A genome file should be passed in order to generate FASTA output.")
+            return 0
+        elif not os.path.isfile(genomeFileName):
+            print("The genome file at {} could not be found.".format(genomeFileName))
+            return 0
+
+    outputDf, chipFragmentNumbers, controlFragmentNumbers = performChipSeq( sequences=sequences, spEnergies=spEnergies,
                             numCells=numCells, depth=depth, pAmp=pAmp,
                             pExt=pExt, pcrCycles=pcrCycles,
                             bgEnergy=inputBgEnergy, controlCellRatio=controlCellRatio,
@@ -383,7 +508,15 @@ def main():
                             secondTFspEnergies=secondTFspEnergies,
                             secondTFchemicalPotential=chemicalPotentialB, 
                             chromAccessibility=chromAccessibility,
-                            indirectLocations=indirectLocations )
+                            indirectLocations=indirectLocations, generateIntervals=generateIntervals )
+
+    if 'name' not in inputDf.columns:
+        inputDf.loc[:,'name'] = outputDf['name'].values
+
+    if generateIntervals:
+        bedFileNames = makeBed( inputDf[bedCols], outputDf, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, outputDir=outputDir )
+        makeFasta( bedFileNames, genomeFileName )
+
 
     colsToWrite = inputDf.columns.tolist()
     for el in ['chip_reads','unique_chip_reads','control_reads','unique_control_reads']:

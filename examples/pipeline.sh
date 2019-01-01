@@ -1,5 +1,5 @@
 #!/bin/bash
-files=(chip.bed control.bed)
+files=(blah_chip_reads.bed blah_control_reads.bed)
 for file in ${files[@]}; do
     outprefix=${file%%.*}
     echo "Doing $outprefix now."

@@ -116,7 +116,7 @@ class GenomeBindingTable:
         #to join entries with second tables from the fragment extraction, 
         #PCR amplification and sequencing processes.
         self.locations = pd.DataFrame( columns=['name'] )
-        self.locations.loc[:,'name'] = range( 1, self.N+1 )
+        self.locations.loc[:,'name'] = ['region_' + str(idx) for idx in range( 1, self.N+1 )]
 
         #Binding energies of the TF A at each location.
         self.locations.loc[:,'energy_A'] = spEnergies
