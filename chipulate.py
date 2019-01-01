@@ -176,7 +176,7 @@ def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100,
 
     return [genome,chipSeq.chipFragmentNumbers,chipSeq.controlFragmentNumbers]
 
-def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, fragmentLength=200, readLength=42, fragmentJitter=20, outputDir=""  ):
+def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, fragmentLength=200, readLength=42, fragmentJitter=40, outputDir=""  ):
     fileNames = []
     for (fileName,fragmentStr,readsToDuplicate) in zip(['chip_reads.bed','control_reads.bed'],['chip_reads','control_reads'],[chipFragmentNumbers,controlFragmentNumbers]):
         numFragments = genome[fragmentStr].sum()
@@ -201,13 +201,16 @@ def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSi
 
         regionNames = bedDf['name'].values
         if fragmentStr == 'chip_reads':
+            #uniqueFragmentMidPoints = np.repeat( bedDf['start'].values + bedDf['summit'].values, genome[uniqueFragmentStr])
+            #uniqueFragmentStartPos = np.random.normal( uniqueFragmentMidPoints, fragmentJitter, size=numUniqueFragments ).astype(np.int64)
             uniqueFragmentMidPoints = np.repeat( bedDf['start'].values + bedDf['summit'].values, genome[uniqueFragmentStr])
-            uniqueFragmentStartPos = np.random.normal( uniqueFragmentMidPoints, fragmentJitter, size=numUniqueFragments ).astype(np.int64)
+            uniqueFragmentStartPos = np.random.normal( uniqueFragmentMidPoints - fragmentLength/2, fragmentJitter, size=numUniqueFragments ).astype(np.int64)
         elif fragmentStr == 'control_reads':
             uniqueFragmentMidPoints = np.repeat( bedDf['start'].values, genome[uniqueFragmentStr] )
             lengths = bedDf['end'].values - bedDf['start'].values
             lengths = np.repeat( lengths, genome[uniqueFragmentStr] )
-            uniqueFragmentStartPos = np.int64( uniqueFragmentMidPoints + lengths * np.random.random( size=numUniqueFragments ) )
+            #uniqueFragmentStartPos = np.int64( uniqueFragmentMidPoints + lengths * np.random.random( size=numUniqueFragments ) )
+            uniqueFragmentStartPos = np.int64( uniqueFragmentMidPoints + lengths * np.random.random( size=numUniqueFragments ) - fragmentLength/2 )
         
         uniqueReadNames = np.zeros( numUniqueFragments, dtype=np.object ) 
         idx = 0
@@ -228,9 +231,17 @@ def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSi
         readsDf.loc[:,'strand'] = strand
         readsDf.loc[:,'name'] = readNames
         readsDf.loc[posStrand,'start'] = np.maximum( 1, fragmentStartPos[posStrand] )
-        readsDf.loc[posStrand,'end'] = fragmentStartPos[posStrand] + readLength - 1
+        readsDf.loc[posStrand,'end'] = fragmentStartPos[posStrand] + readLength
         readsDf.loc[negStrand,'start'] = fragmentStartPos[negStrand] + fragmentLength - readLength
-        readsDf.loc[negStrand,'end'] = fragmentStartPos[negStrand] + fragmentLength - 1
+        readsDf.loc[negStrand,'end'] = fragmentStartPos[negStrand] + fragmentLength
+
+        outOfBounds = readsDf.query( 'end > max' ).index.tolist()
+        readsLeftShift = 1 + np.random.randint( 10, size=len(outOfBounds) )
+        readsDf.loc[outOfBounds,'end'] = readsDf.loc[outOfBounds,'max'] - readsLeftShift
+        readsDf.loc[outOfBounds,'start'] = readsDf.loc[outOfBounds,'start'] - readsLeftShift
+        if len( outOfBounds ) > 0:
+            print( "For the following {} fragment(s) in the {} sample, their right ends were at positions beyond the length of the chromosome. They were shifted to the left by upto 10 base pairs. This can be avoided by either setting a shorter fragment length, or choosing genomic regions away from chromosome ends.".format( len(outOfBounds), fragmentStr[:-6] ) )
+            print( readsDf[['chr','start','end','name','score','strand']].loc[outOfBounds,:] )
 
         if len( outputDir ) == 0:
             fileNames.append( fileName )
@@ -241,16 +252,35 @@ def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSi
 
     return fileNames
 
-def makeFasta( bedFileNames, genomeFileName, outputDir="" ):
+def makeFastq( bedFileNames, genomeFileName, readLength, outputDir="", readErrors='none' ):
     for bedFileName in bedFileNames:
-        fastaFileName = bedFileName[:-4] + '.fa'
+        fastqFileName = bedFileName[:-4] + '.fastq'
         regionsFile = pybedtools.BedTool( bedFileName ).getfasta( fi=genomeFileName, bed=bedFileName, s=True, name=True )
 
-        print( fastaFileName )
         if outputDir == "":
-            regionsFile.save_seqs( fastaFileName )
+            #regionsFile.save_seqs( fastaFileName )
+            fastqFile = open( fastqFileName, 'w' )
         else:
-            regionsFile.save_seqs( '{}.{}'.format( outputDir, fastaFileName ) )
+            #regionsFile.save_seqs( '{}.{}'.format( outputDir, fastaFileName ) )
+            fastqFile = open( '{}.{}'.format( outputDir, fastqFileName ), 'w' )
+
+
+        fastaFile = open(regionsFile.seqfn)
+        asciiBase = 33
+        if readErrors == 'none':
+            qualityScore = 42
+            qualityString = chr( asciiBase + qualityScore ) * readLength
+        
+        for line in fastaFile:
+            if line[0] == '>':
+                line = line.replace('>','@')
+                fastqFile.write( line )
+                continue
+            else:
+                fastqFile.write( line + '+\n{}\n'.format( qualityString ) )
+
+        fastaFile.close()
+        fastqFile.close()
 
 parser = argparse.ArgumentParser(description='The ChIPulate pipeline for\
                                  simulating read counts in a ChIP-seq experiment', 
@@ -318,6 +348,15 @@ parser.add_argument( '-g', '--genome-file', help='File containing a genome seque
 parser.add_argument( '-o', '--output-prefix', help='Prefix of the output file. The\ output is a tab separated file that lists the following\ columns --- <chip_reads> <unique_chip_reads> <control_reads>\ <unique_control_reads>. See README for more information on\ each column.', type=str, required=False, default=None )
 
 parser.add_argument( '--output-dir', help='Directory to which all output should be written. Ensure that you have write privileges to this directory.', type=str, required=False, default=None )
+
+defaultReadLength = 150
+parser.add_argument( '--read-length', help='Read length (in base pairs) to simulate. This must be smaller than the fragment length(s) specified in the --fragment-length argument, and is a required argument if FASTQ output is requested. Only single-end reads are simulated.', type=int, required=False, default=defaultReadLength)
+
+defaultFragmentLength = 200
+parser.add_argument( '--fragment-length', help='Fragment length (in base pairs) to simulate. This must be larger than the read length specified for --read-length.', type=int, required=False, default=defaultFragmentLength)
+
+defaultFragmentJitter = 20
+parser.add_argument( '--fragment-jitter', help='Variation in the starting position of fragments (in base pairs) at a genomic region. A larger value leads to a greater variation in start positions of fragments in ChIP and control samples.', type=int, required=False, default=defaultFragmentJitter)
 
 args = parser.parse_args()
 
@@ -427,6 +466,9 @@ def main():
     inputBgEnergy = args.input_bg
     chromSizesFileName = args.chrom_size_file
     genomeFileName = args.genome_file
+    readLength = args.read_length
+    fragmentLength = args.fragment_length
+    fragmentJitter = args.fragment_jitter
 
     #inputDf = pd.read_csv( inputFileName, sep="\t", skiprows=1, names=['p_ext','p_amp','energy_A','sequence','binding_type','energy_B','int_energy','chrom_accessibility'])
     inputDf = pd.read_csv( inputFileName, sep="\t" )
@@ -473,7 +515,7 @@ def main():
         if 'summit' not in inputDf.columns:
             starts = inputDf['start'].values
             ends = inputDf['end'].values
-            inputDf.loc[:,'summit'] = np.int64( (ends - starts) * np.random.random( size=inputDf.shape[0] ) )
+            inputDf.loc[:,'summit'] = inputDf.eval( '(end-start)/2' )
 
         inputDf.loc[:,'strand'] = '.'
     else:
@@ -514,8 +556,8 @@ def main():
         inputDf.loc[:,'name'] = outputDf['name'].values
 
     if generateIntervals:
-        bedFileNames = makeBed( inputDf[bedCols], outputDf, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, outputDir=outputDir )
-        makeFasta( bedFileNames, genomeFileName )
+        bedFileNames = makeBed( inputDf[bedCols], outputDf, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, outputDir=outputDir, readLength=readLength, fragmentLength=fragmentLength )
+        makeFastq( bedFileNames, genomeFileName, readLength )
 
 
     colsToWrite = inputDf.columns.tolist()
@@ -543,6 +585,9 @@ def main():
     runInfoFile.write( "Number of PCR cycles : {}\n".format( pcrCycles ) )
     runInfoFile.write( "Sequencing depth : {}\n".format( depth ) )
     runInfoFile.write( "Total read count : {}\n".format( depth*numLocations ) )
+    if generateIntervals:
+        print("Got here")
+        runInfoFile.write( "Read length : {}\nFragment length : {}\nFragment jitter : {}\n".format( args.read_length, args.fragment_length, args.fragment_jitter ) )
 
 if __name__ == "__main__":
     main()
