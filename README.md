@@ -12,78 +12,114 @@ ChIPulate requires the following Python3 libraries installed --- ```argparse```,
 These packages can be installed using the Python3 ```pip``` installer with the command ```pip3 install <package>```. 
 
 ## Running ChIPulate
-	usage: chipulate.py [-h] [--mu-A MU_A] [--mu-B MU_B] [-c CONTROL_CELL_FRACTION]
-                  [-b INPUT_BG] [-n NUM_CELLS] [-d DEPTH] [-p PCR_CYCLES] -i
-                  INPUT_FILE [-o OUTPUT_PREFIX]
+	usage: chipulate.py [-h] [--mu-A MU_A] [--mu-B MU_B]
+			    [-c CONTROL_CELL_FRACTION] [-b INPUT_BG] [-n NUM_CELLS]
+			    [-d DEPTH] [-p PCR_CYCLES] -i INPUT_FILE
+			    [--chrom-size-file CHROM_SIZE_FILE] [-g GENOME_FILE]
+			    [-o OUTPUT_PREFIX] [--output-dir OUTPUT_DIR]
+			    [--read-length READ_LENGTH]
+			    [--fragment-length FRAGMENT_LENGTH]
+			    [--fragment-jitter FRAGMENT_JITTER]
 
 	The ChIPulate pipeline for simulating read counts in a ChIP-seq experiment
 
-	Optional arguments:
-  	-h, --help            show this help message and exit
-  	--mu-A MU_A           Chemical potential (in units of k_B T) of TF A, where
-        	                A is the target TF of the ChIP-seq. (default: 3.0)
-  	--mu-B MU_B           Chemical potential (in units of k_B T) of TF B, where
-                        B is a second TF that may be involved in cooperative
-                        or indirect interactions with A, the target TF of the
-                        ChIP-seq. (default: 3.0)
-                        ChIP-seq. (default: 3.0)
+	optional arguments:
+	  -h, --help            show this help message and exit
+	  --mu-A MU_A           Chemical potential (in units of k_B T) of TF A, where
+				A is the target TF of the ChIP-seq. (default: 3.0)
+	  --mu-B MU_B           Chemical potential (in units of k_B T) of TF B, where
+				B is a second TF that may be involved in cooperative
+				or indirect interactions with A, the target TF of the
+				ChIP-seq. (default: 3.0)
 	  -c CONTROL_CELL_FRACTION, --control-cell-fraction CONTROL_CELL_FRACTION
-                        Control cell ratio. This is the fraction ofthe number
-                        of cells used in the ChIP sample that is used for the
-                        control sample. This value should be between 0 and 1.
-                        Setting this parameter to 1 sets the number of cells
-                        used in the ChIP and control samples to 1. (default:
-                        0.1)
-  	-i INPUT_BG, --input-bg INPUT_BG
-                        Background binding energy (in units of k_BT) in the
-                        input sample of the ChIP-seq experiment. Must be
-                        greater than zero. A higher value indicates weaker
-                        binding in the input sample. (default: 3.0)
-  	-n NUM_CELLS, --num-cells NUM_CELLS
-                        Number of cells used in the ChIP sample of the
-                        experiment. A progressive increase in this value slows
-                        down the simulation. (default: 100000)
-  	-d DEPTH, --depth DEPTH
-                        Sequencing depth. We define this as the number of
-                        reads expected per binding location if an equal number
-                        of reads came from each location. The total number of
-                        sequence reads used is the product of the sequencing
-                        depth and the number of binding locations. A
-                        fractional value can be passed if the total number of
-                        reads is less than the number of binding locations.
-                        The coverage is set to be equal in both ChIP and input
-                        samples. (default: 100)
-  	-p PCR_CYCLES, --pcr-cycles PCR_CYCLES
-                        Number of cycles employed in the PCR amplification
-                        step. (default: 15)
-  	-i GENOME_FILE, --input-file INPUT_FILE
-                        File name of a tab-separated file that contains
-                        location-wise information about the genome being
-                        simulated and the experimental parameters of the ChIP-
-                        seq. The first line is ignored and can be used as a header. 
-			Each subsequent line contains an entry of the form <p_ext>
-                        <p_amp> <binding_energy_A> <|sequence|> <|binding_energy_B|>
-                        <|binding_type|> <|interaction energy|>
-                        <|chrom_accessibility|>. The columns enclosed in
-                        |..| are optional. See README for more information on
-                        each column. (default: None)
-  	-o OUTPUT_PREFIX, --output-prefix OUTPUT_PREFIX
-                        Name of the output file. The output is a tab separated
-                        file that lists the following columns --- <chip_reads>
-                        <unique_chip_reads> <control_reads>
-                        <unique_control_reads>. See README for more
-                        information on each column. In addition to the output 
-			file above, two more output files are generated with the 
-			suffixes '.run_info' and '.diag_output'. The run_info file 
-			contains the parameters with which the output was generated 
-			while the '.diag_output' contains results from the intermediate 
-			steps of computation when the read counts are generated. (default: None)
+				Control cell ratio. This is the fraction ofthe number
+				of cells used in the ChIP sample that is used for the
+				control sample. This value should be between 0 and 1.
+				Setting this parameter to 1 sets the number of cells
+				used in the ChIP and control samples to 1. (default:
+				0.1)
+	  -b INPUT_BG, --input-bg INPUT_BG
+				Background binding energy (in units of k_BT) in the
+				input sample of the ChIP-seq experiment. Must be less
+				than the unbound energy. A higher value indicates
+				weaker binding in the input sample. (default: 1.0)
+	  -n NUM_CELLS, --num-cells NUM_CELLS
+				Number of cells used in the ChIP sample of the
+				experiment. A progressive increase in this value slows
+				down the simulation. (default: 100000)
+	  -d DEPTH, --depth DEPTH
+				Sequencing depth. We define this as the number of
+				reads expected per binding location if an equal number
+				of reads came from each location. The total number of
+				sequence reads used is the product of the sequencing
+				depth and the number of binding locations. A
+				fractional value can be passed if the total number of
+				reads is less than the number of binding locations.
+				The depth is set to be equal in both ChIP and input
+				samples. (default: 100)
+	  -p PCR_CYCLES, --pcr-cycles PCR_CYCLES
+				Number of cycles employed in the PCR amplification
+				step. (default: 15)
+	  -i INPUT_FILE, --input-file INPUT_FILE
+				File name of a tab-separated file that contains
+				location-wise information about the genome being
+				simulated and the experimental parameters of the ChIP-
+				seq. Each line contains an entry of the form <p_ext>
+				<p_amp> <binding_energy_A> <|binding_energy_B|>
+				<|binding_type|> <|interaction energy|> <|sequence|>
+				<|chrom_accessibility|>, where the columns enclosed in
+				|..| are optional. See README for more information on
+				each column. (default: None)
+	  --chrom-size-file CHROM_SIZE_FILE
+				File containing sizes of each chromosome. This
+				argument is ignored when the chr, start and end
+				columns are not specified in the input file. If these
+				columns are specified, a tab-separated file where the
+				first two columns contain the chromosome name and
+				size, respectively, must be supplied. (default: )
+	  -g GENOME_FILE, --genome-file GENOME_FILE
+				File containing a genome sequence in FASTA format. If
+				FASTA output is requested (by specifying the chr,
+				start and end columns in the input file), a single
+				FASTA file containing the genome sequence must be
+				specified. If chr, start and end columns are not
+				specified in the input, then this argument is ignored.
+				(default: )
+	  -o OUTPUT_PREFIX, --output-prefix OUTPUT_PREFIX
+				Prefix of the output file. The\ output is a tab
+				separated file that lists the following\ columns ---
+				<chip_reads> <unique_chip_reads> <control_reads>\
+				<unique_control_reads>. See README for more
+				information on\ each column. (default: None)
+	  --output-dir OUTPUT_DIR
+				Directory to which all output should be written.
+				Ensure that you have write privileges to this
+				directory. (default: None)
+	  --read-length READ_LENGTH
+				Read length (in base pairs) to simulate. This must be
+				smaller than the fragment length(s) specified in the
+				--fragment-length argument, and is a required argument
+				if FASTQ output is requested. Only single-end reads
+				are simulated. (default: 150)
+	  --fragment-length FRAGMENT_LENGTH
+				Fragment length (in base pairs) to simulate. This must
+				be larger than the read length specified for --read-
+				length. (default: 200)
+	  --fragment-jitter FRAGMENT_JITTER
+				Variation in the starting position of fragments (in
+				base pairs) at a genomic region. A larger value leads
+				to a greater variation in start positions of fragments
+				in ChIP and control samples. (default: 20)
+
 
 	
 ## Input file
 	
 The header of the GENOME_FILE input must contain the following column items, of which ```p_ext```, ```p_amp``` and ```energy_A``` are the minimum columns that must be specified to run ChIPulate (see the Examples section of the README). The GENOME_FILE columns represent the following quantities:
 
+	chr --- Chromosome coordinate of each genomic region
+	start --- Starting position of each genomic region
+	end ---- End position of each genomic region
 	p_ext --- The extraction efficiency at each genomic location. The value must
 	lie between 0 and 1.
 	p_amp --- PCR efficiency at each genomic location, which must lie between 0
