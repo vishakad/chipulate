@@ -356,7 +356,7 @@ defaultFragmentLength = 200
 parser.add_argument( '--fragment-length', help='Fragment length (in base pairs) to simulate. This must be larger than the read length specified for --read-length.', type=int, required=False, default=defaultFragmentLength)
 
 defaultFragmentJitter = 20
-parser.add_argument( '--fragment-jitter', help='Variation in the starting position of fragments (in base pairs) at a genomic region. A larger value leads to a greater variation in start positions of fragments in ChIP and control samples.', type=int, required=False, default=defaultFragmentJitter)
+parser.add_argument( '--fragment-jitter', help='Variation in the starting position of fragments (in base pairs) at a genomic region. A larger value leads to a greater variation in start positions of fragments in the ChIP sample only. This parameter does not affect the starting position of fragments in the control sample.', type=int, required=False, default=defaultFragmentJitter)
 
 args = parser.parse_args()
 
@@ -556,7 +556,7 @@ def main():
         inputDf.loc[:,'name'] = outputDf['name'].values
 
     if generateIntervals:
-        bedFileNames = makeBed( inputDf[bedCols], outputDf, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, outputDir=outputDir, readLength=readLength, fragmentLength=fragmentLength )
+        bedFileNames = makeBed( inputDf[bedCols], outputDf, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, outputDir=outputDir, readLength=readLength, fragmentLength=fragmentLength, fragmentJitter=fragmentJitter )
         makeFastq( bedFileNames, genomeFileName, readLength )
 
 
@@ -586,7 +586,6 @@ def main():
     runInfoFile.write( "Sequencing depth : {}\n".format( depth ) )
     runInfoFile.write( "Total read count : {}\n".format( depth*numLocations ) )
     if generateIntervals:
-        print("Got here")
         runInfoFile.write( "Read length : {}\nFragment length : {}\nFragment jitter : {}\n".format( args.read_length, args.fragment_length, args.fragment_jitter ) )
 
 if __name__ == "__main__":

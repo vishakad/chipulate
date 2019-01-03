@@ -584,7 +584,6 @@ def findKlDistAll():
         defaultPext = distributions.truncNorm( a=0, b=1, mu=0.5, sigma=0.05, size=numLocations )
         energiesSampled = distributions.truncPowerLawRVs( 0.5, 0, 10, size=numLocations )
 
-        
     tfIdx = 0
     klDistInfo['energies' ] = energiesSampled
     klDistInfo['defaultPext'] = defaultPext 
@@ -646,14 +645,13 @@ def findKlDistAll():
                             break
                         else:
                             klDistInfo[tf]['normal'][variable][muIdx,widthIdx,:] = klDist                    
-                            widthIdx += 0
+                            widthIdx += 1
                         
                     muIdx += 1
         saveFile = open( 'data/klDistInfo.pickle', 'wb' )
         pickle.dump( klDistInfo, saveFile )
         saveFile.close()
-    tfIdx += 1
-
+        tfIdx += 1
 
 def main():
     findKlDistAll()
