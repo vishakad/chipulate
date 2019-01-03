@@ -3,87 +3,125 @@ A Python3 framework to simulate read counts in a ChIP-seq experiment.
 
 ## Getting Started
 
-ChIPulate requires the following Python3 libraries installed --- ```argparse```,```numpy```,```scipy``` and ```pandas```. ChIPulate has been tested to work with these versions of these libraries ---
-    argparse : 1.1
-    numpy : 1.15.2
-    scipy : 1.1.0
-    pandas : 0.23.4
-
-These packages can be installed using the Python3 ```pip``` installer with the command ```pip3 install <package>```. 
+ChIPulate requires the following Python3 libraries installed --- ```argparse```,```numpy```,```scipy```, ```pybedtools``` and ```pandas```. ChIPulate has been tested to work with these versions of these libraries ---
+    argparse : `1.1`
+    numpy : `1.15.2`
+    scipy : `1.1.0`
+    pandas : `0.23.4`
+    pybedtools : `0.8.0`
+    
+These packages can be installed using the Python3 ```pip``` installer with the command ```pip3 install <package>```. In addition, `pybedtools` needs `bedtools` to be pre-installed on the system in order to run. 
 
 ## Running ChIPulate
-	usage: chipulate.py [-h] [--mu-A MU_A] [--mu-B MU_B] [-c CONTROL_CELL_FRACTION]
-                  [-b INPUT_BG] [-n NUM_CELLS] [-d DEPTH] [-p PCR_CYCLES] -i
-                  INPUT_FILE [-o OUTPUT_PREFIX]
+	usage: chipulate.py [-h] [--mu-A MU_A] [--mu-B MU_B]
+			    [-c CONTROL_CELL_FRACTION] [-b INPUT_BG] [-n NUM_CELLS]
+			    [-d DEPTH] [-p PCR_CYCLES] -i INPUT_FILE
+			    [--chrom-size-file CHROM_SIZE_FILE] [-g GENOME_FILE]
+			    [-o OUTPUT_PREFIX] [--output-dir OUTPUT_DIR]
+			    [--read-length READ_LENGTH]
+			    [--fragment-length FRAGMENT_LENGTH]
+			    [--fragment-jitter FRAGMENT_JITTER]
 
 	The ChIPulate pipeline for simulating read counts in a ChIP-seq experiment
 
-	Optional arguments:
-  	-h, --help            show this help message and exit
-  	--mu-A MU_A           Chemical potential (in units of k_B T) of TF A, where
-        	                A is the target TF of the ChIP-seq. (default: 3.0)
-  	--mu-B MU_B           Chemical potential (in units of k_B T) of TF B, where
-                        B is a second TF that may be involved in cooperative
-                        or indirect interactions with A, the target TF of the
-                        ChIP-seq. (default: 3.0)
-                        ChIP-seq. (default: 3.0)
+	optional arguments:
+	  -h, --help            show this help message and exit
+	  --mu-A MU_A           Chemical potential (in units of k_B T) of TF A, where
+				A is the target TF of the ChIP-seq. (default: 3.0)
+	  --mu-B MU_B           Chemical potential (in units of k_B T) of TF B, where
+				B is a second TF that may be involved in cooperative
+				or indirect interactions with A, the target TF of the
+				ChIP-seq. (default: 3.0)
 	  -c CONTROL_CELL_FRACTION, --control-cell-fraction CONTROL_CELL_FRACTION
-                        Control cell ratio. This is the fraction ofthe number
-                        of cells used in the ChIP sample that is used for the
-                        control sample. This value should be between 0 and 1.
-                        Setting this parameter to 1 sets the number of cells
-                        used in the ChIP and control samples to 1. (default:
-                        0.1)
-  	-i INPUT_BG, --input-bg INPUT_BG
-                        Background binding energy (in units of k_BT) in the
-                        input sample of the ChIP-seq experiment. Must be
-                        greater than zero. A higher value indicates weaker
-                        binding in the input sample. (default: 3.0)
-  	-n NUM_CELLS, --num-cells NUM_CELLS
-                        Number of cells used in the ChIP sample of the
-                        experiment. A progressive increase in this value slows
-                        down the simulation. (default: 100000)
-  	-d DEPTH, --depth DEPTH
-                        Sequencing depth. We define this as the number of
-                        reads expected per binding location if an equal number
-                        of reads came from each location. The total number of
-                        sequence reads used is the product of the sequencing
-                        depth and the number of binding locations. A
-                        fractional value can be passed if the total number of
-                        reads is less than the number of binding locations.
-                        The coverage is set to be equal in both ChIP and input
-                        samples. (default: 100)
-  	-p PCR_CYCLES, --pcr-cycles PCR_CYCLES
-                        Number of cycles employed in the PCR amplification
-                        step. (default: 15)
-  	-i GENOME_FILE, --input-file INPUT_FILE
-                        File name of a tab-separated file that contains
-                        location-wise information about the genome being
-                        simulated and the experimental parameters of the ChIP-
-                        seq. The first line is ignored and can be used as a header. 
-			Each subsequent line contains an entry of the form <p_ext>
-                        <p_amp> <binding_energy_A> <|sequence|> <|binding_energy_B|>
-                        <|binding_type|> <|interaction energy|>
-                        <|chrom_accessibility|>. The columns enclosed in
-                        |..| are optional. See README for more information on
-                        each column. (default: None)
-  	-o OUTPUT_PREFIX, --output-prefix OUTPUT_PREFIX
-                        Name of the output file. The output is a tab separated
-                        file that lists the following columns --- <chip_reads>
-                        <unique_chip_reads> <control_reads>
-                        <unique_control_reads>. See README for more
-                        information on each column. In addition to the output 
-			file above, two more output files are generated with the 
-			suffixes '.run_info' and '.diag_output'. The run_info file 
-			contains the parameters with which the output was generated 
-			while the '.diag_output' contains results from the intermediate 
-			steps of computation when the read counts are generated. (default: None)
-
+				Control cell ratio. This is the fraction ofthe number
+				of cells used in the ChIP sample that is used for the
+				control sample. This value should be between 0 and 1.
+				Setting this parameter to 1 sets the number of cells
+				used in the ChIP and control samples to 1. (default:
+				0.1)
+	  -b INPUT_BG, --input-bg INPUT_BG
+				Background binding energy (in units of k_BT) in the
+				input sample of the ChIP-seq experiment. Must be less
+				than the unbound energy. A higher value indicates
+				weaker binding in the input sample. (default: 1.0)
+	  -n NUM_CELLS, --num-cells NUM_CELLS
+				Number of cells used in the ChIP sample of the
+				experiment. A progressive increase in this value slows
+				down the simulation. (default: 100000)
+	  -d DEPTH, --depth DEPTH
+				Sequencing depth. We define this as the number of
+				reads expected per binding location if an equal number
+				of reads came from each location. The total number of
+				sequence reads used is the product of the sequencing
+				depth and the number of binding locations. A
+				fractional value can be passed if the total number of
+				reads is less than the number of binding locations.
+				The depth is set to be equal in both ChIP and input
+				samples. (default: 100)
+	  -p PCR_CYCLES, --pcr-cycles PCR_CYCLES
+				Number of cycles employed in the PCR amplification
+				step. (default: 15)
+	  -i INPUT_FILE, --input-file INPUT_FILE
+				File name of a tab-separated file that contains
+				location-wise information about the genome being
+				simulated and the experimental parameters of the ChIP-
+				seq. Each line contains an entry of the form <p_ext>
+				<p_amp> <binding_energy_A> <|binding_energy_B|>
+				<|binding_type|> <|interaction energy|> <|sequence|>
+				<|chrom_accessibility|>, where the columns enclosed in
+				|..| are optional. See README for more information on
+				each column. (default: None)
+	  --chrom-size-file CHROM_SIZE_FILE
+				File containing sizes of each chromosome. This
+				argument is ignored when the chr, start and end
+				columns are not specified in the input file. If these
+				columns are specified, a tab-separated file where the
+				first two columns contain the chromosome name and
+				size, respectively, must be supplied. (default: )
+	  -g GENOME_FILE, --genome-file GENOME_FILE
+				File containing a genome sequence in FASTA format. If
+				FASTA output is requested (by specifying the chr,
+				start and end columns in the input file), a single
+				FASTA file containing the genome sequence must be
+				specified. If chr, start and end columns are not
+				specified in the input, then this argument is ignored.
+				(default: )
+	  -o OUTPUT_PREFIX, --output-prefix OUTPUT_PREFIX
+				Prefix of the output file. The\ output is a tab
+				separated file that lists the following\ columns ---
+				<chip_reads> <unique_chip_reads> <control_reads>\
+				<unique_control_reads>. See README for more
+				information on\ each column. (default: None)
+	  --output-dir OUTPUT_DIR
+				Directory to which all output should be written.
+				Ensure that you have write privileges to this
+				directory. (default: None)
+	  --read-length READ_LENGTH
+				Read length (in base pairs) to simulate. This must be
+				smaller than the fragment length(s) specified in the
+				--fragment-length argument, and is a required argument
+				if FASTQ output is requested. Only single-end reads
+				are simulated. (default: 150)
+	  --fragment-length FRAGMENT_LENGTH
+				Fragment length (in base pairs) to simulate. This must
+				be larger than the read length specified for --read-
+				length. (default: 200)
+	  --fragment-jitter FRAGMENT_JITTER
+				Variation in the starting position of fragments (in
+				base pairs) at a genomic region. A larger value leads
+				to a greater variation in start positions of fragments
+				in the ChIP sample only. This parameter does not
+				affect the starting position of fragments in the
+				control sample. (default: 20)
 	
 ## Input file
 	
 The header of the GENOME_FILE input must contain the following column items, of which ```p_ext```, ```p_amp``` and ```energy_A``` are the minimum columns that must be specified to run ChIPulate (see the Examples section of the README). The GENOME_FILE columns represent the following quantities:
 
+	chr --- Chromosome coordinate of each genomic region. This is mandatory for BED and FASTQ files to be generated.
+	start --- Starting position of each genomic region. This is mandatory for BED and FASTQ files to be generated.
+	end ---- End position of each genomic region. This is mandatory for BED and FASTQ files to be generated.
+	name --- Names for each entry. This is optional. If this column is not specified, each entry will be called region_1, region_2, ... .
 	p_ext --- The extraction efficiency at each genomic location. The value must
 	lie between 0 and 1.
 	p_amp --- PCR efficiency at each genomic location, which must lie between 0
@@ -129,6 +167,8 @@ The main output file, with the extension ```.chipulate.out```, is a tsv file tha
 	
 Two more files are generated in addition to the ```.chipulate.out``` file, which are suffixed with ```.chipulate.out.run_info``` and ```.chipulate.out.diag_output```. The run_info file conains the parameters with which the output was generated  while the '.diag_output' contains results from the intermediate steps of computation when the read counts are generated. See
 the Examples section for more details.
+
+If `chr`,`start` and `end` positions are supplied in the input file, then additional `.bed` and `.fastq` files are generated by ChIPulate, one each for the ChIP and control samples. The `.bed` file generated contains six columns (these are the first six columns of the standard BED format https://genome.ucsc.edu/FAQ/FAQformat.html#format1). These columns are coordinates of single-end reads, the name of each read (with duplicates marked), and the strand from which they originated. The `.fastq` files contain the sequences of each read, along with a fixed quality score of each read in the phred+33 scale. 
 
 ## Running the examples
 
@@ -293,7 +333,7 @@ In the example for indirect binding, all the interaction energies between both t
 	0.503651	0.58	0.41	ATCAGGTGAT	direct	0	0
 	0.578344	0.28	0.15	GTCACGTGAT	direct	0.20	0
 
-When the command ```python3 chipulate.py -i examples/coopExample.tsv -o examples/coopExample``` is run, the output is written to ```examples/coopExample.chipulate.out```
+When the command ```python3 chipulate.py -i examples/coopExample.tsv --output-dir examples --output-prefix coopExample``` is run, the output is written to ```examples/coopExample.chipulate.out```
 
 	p_ext	p_amp	energy_A	sequence	binding_type	energy_B	int_energy	chip_reads	unique_chip_reads	control_reads	unique_control_reads
 	0.539179	0.18	0.15	GTCACGTGAT	direct	0.2	-2	1	1	1	1
@@ -306,6 +346,98 @@ When the command ```python3 chipulate.py -i examples/coopExample.tsv -o examples
 	0.49219700000000005	0.58	0.41	ATCAGGTGAT	direct	0.59	-1	63	56	83	70
 	0.5036510000000001	0.58	0.41	ATCAGGTGAT	direct	0.0	0	78	63	71	54
 	0.578344	0.28	0.15	GTCACGTGAT	direct	0.2	0	4	4	7	7
+
+
+## Running ChIPulate to generate FASTQ files from genomic regions
+
+### Basic example
+In order to run ChIPulate in FASTQ generation mode, genomic intervals need to be specified for each entry in the input file. An example of this is the `examples/fastq-basicExample.tsv` file shown below---
+
+	chr	start	end	p_ext	p_amp	energy_A
+	chr1	1523	1773	0.539179	0.18	0.15
+	chr1	5612	5862	0.505944	0.58	0.15
+	chr1	11241	11491	0.498672	0.58	0.41
+	chr1	11620	11870	0.479857	0.79	0.15
+	chr1	20066	20316	0.494356	0.58	1.15
+	chr1	22716	22966	0.554812	0.58	0.15
+	chr1	35534	35784	0.545281	0.38	0.41
+	chr1	48914	49164	0.492197	0.58	9.41
+	chr1	92766	93016	0.503651	0.58	0.41
+	chr1	156041	156241	0.578344	0.28	0.15
+	
+In addition to the `chr`,`start` and `end` positions being supplied for each entry, the `--genome-file` and `--chrom-size-file` arguments must be supplied. The genome file must be a single FASTA file that contains the sequences of all chromosomes in the genome. The second argument should be a tab-separated file containing at least two columns, where the first two columns contain the chromosome name (with the same names as in the FASTA file) and the length of each chromosome. Such a file is commonly generated using the `faidx` command from the `samtools` suite. 
+
+If no `chr`,`start` and `end` columns are supplied in the input file, the `--genome-file`, `--chrom-size-file` and other arguments related to the FASTQ generation mode (namely, `--read-length`, `--fragment-length` and `--fragment-jitter`) will be disregarded, and no `.bed` or `.fastq` files will be output by ChIPulate.
+
+The following command is a minimum working example of the FASTQ generation mode. The default fragment length used to generate fragments is 200 bp, the default read length is 150 bp and the fragment jitter is 20 bp (explained below). 
+
+	python3 chipulate.py --input-file examples/fastq-basicExample.tsv --genome-file examples/yeast-genome.fa --chrom-size-file examples/yeast-genome.fa.fai --output-dir examples/
+	
+To run this example, ensure that the `yeast-genome.fa.gz` file in the `examples/` folder is extracted. The `yeast-genome.fa.fai` provided in the `examples/` folder was obtained by running the command `samtools faidx yeast-genome.fa`, which gives the following contents---
+
+	chr1	230218	6	60	61
+	chr2	813184	234067	60	61
+	chr3	316620	1060811	60	61
+	chr4	1531933	1382714	60	61
+	chr5	576874	2940186	60	61
+	chr6	270161	3526681	60	61
+	chr7	1090940	3801351	60	61
+	chr8	562643	4910480	60	61
+	chr9	439888	5482507	60	61
+	chr10	745751	5929734	60	61
+	chr11	666816	6687922	60	61
+	chr12	1078177	7365859	60	61
+	chr13	924431	8462013	60	61
+	chr14	784333	9401859	60	61
+	chr15	1091291	10199272	60	61
+	chr16	948066	11308759	60	61
+	chrM	85779	12272633	60	61
+
+The first two columns contain the chromosome names and sizes. Note that a file containing only the first two columns will suffice for ChIPulate. Any additional tab-separated columns provided will be ignored.
+
+Two `.bed` files are output from running the above command --- `fastq-test.chip_reads.bed` and `fastq-test.control_reads.bed`. 
+The first five lines of `fastq-test.chip_reads.bed` generated in a sample run are ---
+
+	chr1	5659	5809	region_2_read_1	1	+
+	chr1	5632	5782	region_2_read_2	1	+
+	chr1	5713	5863	region_2_read_3	1	-
+	chr1	5629	5779	region_2_read_4	1	-
+	chr1	5701	5851	region_2_read_5	1	-
+
+These five lines represent unique single-end reads that are not PCR duplicates. Duplicates reads carry the same name, as shown below for reads from `region_4` ---
+
+	chr1	11745	11895	region_4_read_40	1	-
+	chr1	11745	11895	region_4_read_40	1	-
+
+In addition to these two `.bed` files, two FASTQ files are generated --- `fastq-test.chip_reads.fastq` and `fastq-test.control_reads.fastq`. The first five entries of `fastq-test.chip_reads.fastq` generated in a sample run are ---
+
+	@region_2_read_1(+)
+	ATCAAATGCACTAATATTGTAACGTTCTTACAAAGGGCAGACAACTTGAGAACTTTCATGCGTGCAACAGTATTAATATTTTACTGTCTTGATATCGTTATCCTCATCGTAACGTGAATTTTTTTGTCTCATACGTTAAGGTAAATTTTG
+	+
+	KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+	@region_2_read_2(+)
+	CTTTATTATGTGGCCGAATCAACATTAATCAAATGCACTAATATTGTAACGTTCTTACAAAGGGCAGACAACTTGAGAACTTTCATGCGTGCAACAGTATTAATATTTTACTGTCTTGATATCGTTATCCTCATCGTAACGTGAATTTTT
+	+
+	KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+	@region_2_read_3(-)
+	AAACAATAAAAGGGTGCTTTATACAGTAAGGCAAACAAGGACAACGGGGGTCATCAAAATTTACCTTAACGTATGAGACAAAAAAATTCACGTTACGATGAGGATAACGATATCAAGACAGTAAAATATTAATACTGTTGCACGCATGAA
+	+
+	KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+	@region_2_read_4(-)
+	AATTCACGTTACGATGAGGATAACGATATCAAGACAGTAAAATATTAATACTGTTGCACGCATGAAAGTTCTCAAGTTGTCTGCCCTTTGTAAGAACGTTACAATATTAGTGCATTTGATTAATGTTGATTCGGCCACATAATAAAGTTT
+	+
+	KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+	@region_2_read_5(-)
+	GGTGCTTTATACAGTAAGGCAAACAAGGACAACGGGGGTCATCAAAATTTACCTTAACGTATGAGACAAAAAAATTCACGTTACGATGAGGATAACGATATCAAGACAGTAAAATATTAATACTGTTGCACGCATGAAAGTTCTCAAGTT
+	+
+
+The read names correspond to the read names generated in the respective BED files, and indicate the strand orientation (`+/-`) in parentheses. By default, the maximum base quality is set at `K` in the Phred-33 scale. ChIPulate currently only supports the generation of single-end reads. 
+
+The figure below is a snap-shot of reads aligned to `region_1`. To generate this image, reads from both chip and control samples were aligned to the yeast genome (`examples/yeast-genome.fa`) using `bwa`, and the resulting SAM files were converted to BAM, sorted, and indexed, using `samtools`. The sorted BAM files obtained were input to Integrated Genome Viewer (IGV). The reads aligned to `region_3` (the genomic interval `chr1:11241-11491`) in both ChIP and input samples are shown below ---
+
+
+
+The read length and fragment length can be altered by specifying the `--read-length` and `--fragment-length` parameter. 
 
 ## Notes on parameters and performance of ChIPulate
 

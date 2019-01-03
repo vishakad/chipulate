@@ -557,6 +557,7 @@ def main():
 
     if generateIntervals:
         bedFileNames = makeBed( inputDf[bedCols], outputDf, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, outputDir=outputDir, readLength=readLength, fragmentLength=fragmentLength, fragmentJitter=fragmentJitter )
+
         makeFastq( bedFileNames, genomeFileName, readLength )
 
 
