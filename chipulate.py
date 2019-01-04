@@ -276,7 +276,6 @@ def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSi
         else:
             for (ext,df) in zip(['_R1.bed','_R2.bed'],[readsDf,readsDf2]):
                 fileName = outputPrefix + fragmentStr + ext
-                print( fileName )
                 df[['chr','start','end','name','score','strand']].to_csv( fileName,sep="\t",index=False,header=False)
                 fileNames.append( fileName )
 
