@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import pandas as pd
+import sys
 
 import GenomeBindingTable as gbt
 import FragExtract as Frag
@@ -393,7 +394,7 @@ parser.add_argument( '--library-type', help='Type of sequencing library. This ca
 
 args = parser.parse_args()
 
-def validateInput( df ):
+def validateInput( df, args ):
     numLocations = df.shape[0]
     terminateFlag = False
     allowedColumnNames = ['chr','start','end','name','summit','p_ext','p_amp','energy_A','energy_B','sequence','binding_type','int_energy']
@@ -402,20 +403,20 @@ def validateInput( df ):
     #Check column names
     for column in df.columns:
         if column not in allowedColumnNames:
-            print("ERROR : Column {} is not an allowed column name. Perhaps the entries are not tab separated?".format( column ) )
+            print("ERROR : Column {} is not an allowed column name. Perhaps the entries are not tab separated?".format( column ) ,file=sys.stderr)
             terminateFlag = True
 
     if terminateFlag:
-        print("ERROR : Allowed column names are {}, where ['p_ext','p_amp','energy_A'] are required inputs.".format( allowedColumnNames ) )
+        print("ERROR : Allowed column names are {}, where ['p_ext','p_amp','energy_A'] are required inputs.".format( allowedColumnNames ) ,file=sys.stderr)
 
     #Check if correct datatypes have been specified in each column. 
     for column in df.columns:
         isNumericType = pd.api.types.is_numeric_dtype( df[column] )
         if column in ['p_ext','p_amp','energy_A','energy_B','int_energy'] and not isNumericType:
-            print("ERROR : Only numeric data expected in column {}.".format( column ))
+            print("ERROR : Only numeric data expected in column {}.".format( column ),file=sys.stderr)
             terminateFlag = True
         elif column in ['binding_type','sequence'] and isNumericType:
-            print("ERROR : Only non-numeric data expected in column {}.".format( column ) )
+            print("ERROR : Only non-numeric data expected in column {}.".format( column ) ,file=sys.stderr)
             terminateFlag = True
 
     #Check if there are missing entries in any of the columns.
@@ -423,16 +424,16 @@ def validateInput( df ):
     for column in df.columns:
         numNaNs = df[column].isnull().sum()
         if not (numNaNs == numLocations or numNaNs == 0):
-            print( "ERROR : Column {} has missing entries.".format( column ) )
+            print( "ERROR : Column {} has missing entries.".format( column ) ,file=sys.stderr)
             terminateFlag = True
         elif numNaNs == numLocations:
             if column in ['p_ext','p_amp','energy_A']:
-                print("ERROR : Values for column {} needs to be specified as it is a required input.".format( column ) )
+                print("ERROR : Values for column {} needs to be specified as it is a required input.".format( column ) ,file=sys.stderr)
                 terminateFlag = True
             columnsWithNaNs.append( column )
 
     if ('energy_B' in df.columns and 'int_energy' not in df.columns): 
-        print('ERROR : Interaction energies need to be specified if a second TF is to be simulated')
+        print('ERROR : Interaction energies need to be specified if a second TF is to be simulated',file=sys.stderr)
         terminateFlag = True
 
     df = df.drop( columnsWithNaNs, axis=1 )
@@ -446,7 +447,7 @@ def validateInput( df ):
                 maxVal = df[column].max()
                 minVal = df[column].min()
                 if minVal < acceptableRanges[column][0] or maxVal > acceptableRanges[column][1]:
-                    print("ERROR : Some value(s) in column {} lie outside the range {}".format( column, acceptableRanges[column] ) )
+                    print("ERROR : Some value(s) in column {} lie outside the range {}".format( column, acceptableRanges[column] ) ,file=sys.stderr)
                     terminateFlag = True 
             elif column == 'binding_type':
                 bindingTypeSum = 0
@@ -454,7 +455,7 @@ def validateInput( df ):
                     bindingTypeSum += df.query( 'binding_type == "{}"'.format( bindingType ) ).shape[0]
                 
                 if bindingTypeSum != numLocations:
-                    print("ERROR : Some value(s) in column {} are not in the acceptable set of value {}".format( column, acceptableRanges[column] ) )
+                    print("ERROR : Some value(s) in column {} are not in the acceptable set of value {}".format( column, acceptableRanges[column] ) ,file=sys.stderr)
                     terminateFlag = False
             elif column == 'sequence':
                 allSequences = "".join( df['sequence'].values )
@@ -463,15 +464,61 @@ def validateInput( df ):
 
                 intersection = lettersPresent.intersection( acceptableRanges[column] )
                 if intersection != lettersPresent: 
-                    print("WARNING : Invalid letters present in input sequences.  Accepted letters are {}. Continuing anyway".format( acceptableRanges[column] ) )
+                    print("WARNING : Invalid letters present in input sequences.  Accepted letters are {}. Continuing anyway".format( acceptableRanges[column] ) ,file=sys.stderr)
                     terminateFlag = True
 
     if 'int_energy' in df.columns and 'binding_type' in df.columns:
         numIndirectInteractionClashes = df.query('binding_type == "indirect" & int_energy > 0').shape[0]
         if numIndirectInteractionClashes > 0:
-            print("Note : There are {} entries where the target TF is specified to indirectly bind DNA but an interaction energy has also been specified. These entries will be treated as indirectly bound by A via B and the interaction energy will be ignored.".format( numIndirectInteractionClashes ) )
+            print("Note : There are {} entries where the target TF is specified to indirectly bind DNA but an interaction energy has also been specified. These entries will be treated as indirectly bound by A via B and the interaction energy will be ignored.".format( numIndirectInteractionClashes ))
 
     return [terminateFlag,df]
+
+def validateBedFasta( args ):
+    chromSizesFileName = args.chrom_size_file
+    genomeFileName = args.genome_file
+    readLength = args.read_length
+    fragmentLength = args.fragment_length
+    fragmentJitter = args.fragment_jitter
+    libraryType = args.library_type
+
+    terminateFlag = False
+
+    if len(chromSizesFileName) == 0:
+        print("A chrom.sizes file should be passed in order to generate BED/FASTA output.", file=sys.stderr,file=sys.stderr)
+        terminateFlag = True
+    elif not os.path.isfile(chromSizesFileName):
+        print("The chrom.sizes file at {} could not be found.".format(chromSizesFileName), file=sys.stderr,file=sys.stderr)
+        terminateFlag = True
+    else:
+        chromSizesDf = pd.read_table( chromSizesFileName, sep="\t", header=None )
+        if not np.issubdtype( chromSizesDf[1].dtype, np.number ):
+            print( "Second column of chrom.sizes file should contain numeric data.", file=sys.stderr,file=sys.stderr)
+            terminateFlag = True
+        elif chromSizesDf.shape[0] == 0:
+            print( "Chrom.sizes file appears empty." ,file=sys.stderr)
+            terminateFlag = True
+
+    if len(genomeFileName) == 0:
+        print("A genome file should be passed in order to generate FASTA output.", file=sys.stderr,file=sys.stderr)
+        terminateFlag = True
+    elif not os.path.isfile(genomeFileName):
+        print("The genome file at {} could not be found.".format(genomeFileName),file=sys.stderr)
+        terminateFlag = True
+
+    if libraryType not in ['single-end','paired-end']:
+        print("Library type was specified as {}. This should either be \"single-end\" or \"paired-end\".".format( libraryType ) ,file=sys.stderr)
+        terminateFlag = True
+
+    for (val,quantity) in zip( [fragmentJitter,fragmentLength,readLength], ['Fragment jitter','Fragment length','Read length'] ):
+        if val < 0:
+            print("{} was specified as {} bp. This should be a non-negative value.".format( quantity, val ),file=sys.stderr)
+            terminateFlag = True
+
+    if readLength > 0 and fragmentLength > 0 and fragmentLength < readLength:
+        print("Fragment length specified ({} bp) is lower than the read length specified ({} bp). Read length must be less than fragment length.".format( fragmentLength, readLength), file=sys.stderr ,file=sys.stderr) 
+
+    return terminateFlag 
 
 def main():
     inputFileName = args.input_file
@@ -490,6 +537,15 @@ def main():
     diagOutputFileName = outputDir + '.chipulate.diag_output'
     runInfoOutputFileName = outputDir + '.chipulate.run_info'
 
+    #inputDf = pd.read_csv( inputFileName, sep="\t", skiprows=1, names=['p_ext','p_amp','energy_A','sequence','binding_type','energy_B','int_energy','chrom_accessibility'])
+    inputDf = pd.read_csv( inputFileName, sep="\t" )
+    numLocations = inputDf.shape[0]
+
+    terminateFlagInput, inputDf = validateInput( inputDf, args ) 
+    if 'chr' in inputDf.columns and 'start' in inputDf.columns and 'end' in inputDf.columns:
+        generateIntervals = True
+        terminateFlagBedFasta = validateBedFasta( args )
+    
     depth = args.depth
     numCells = args.num_cells
     chemicalPotentialA = args.mu_A
@@ -504,14 +560,8 @@ def main():
     fragmentJitter = args.fragment_jitter
     libraryType = args.library_type
 
-    #inputDf = pd.read_csv( inputFileName, sep="\t", skiprows=1, names=['p_ext','p_amp','energy_A','sequence','binding_type','energy_B','int_energy','chrom_accessibility'])
-    inputDf = pd.read_csv( inputFileName, sep="\t" )
-    numLocations = inputDf.shape[0]
-
-    terminateFlag, inputDf = validateInput( inputDf ) 
-
-    if terminateFlag:
-        print("Error encountered in input. Aborting.")
+    if terminateFlagBedFasta or terminateFlagInput :
+        print("Error encountered in input. Aborting.", file=sys.stderr)
         return 0
 
     spEnergies = inputDf['energy_A']
@@ -541,8 +591,7 @@ def main():
         chromAccessibility = []
 
     bedCols = []
-    if 'chr' in inputDf.columns and 'start' in inputDf.columns and 'end' in inputDf.columns:
-        generateIntervals = True
+    if generateIntervals:
         bedCols = ['chr','start','end','name','summit','strand']
 
         #Assign random summits to each region.
@@ -552,29 +601,8 @@ def main():
             inputDf.loc[:,'summit'] = inputDf.eval( '(end-start)/2' )
 
         inputDf.loc[:,'strand'] = '.'
-    else:
-        generateIntervals = False
-
-    if generateIntervals:
-        if len(chromSizesFileName) == 0:
-            print("A chrom.sizes file should be passed in order to generate BED/FASTA output. Exiting.")
-            return 0
-        elif not os.path.isfile(chromSizesFileName):
-            print("The chrom.sizes file at {} could not be found. Exiting.".format(chromSizesFileName))
-            return 0
-        else:
-            chromSizesDf = pd.read_table( chromSizesFileName, sep="\t", header=None )
-            if not np.issubdtype( chromSizesDf[1].dtype, np.number ):
-                print( "Second column of chrom.sizes file should contain numeric data.Exiting." )
-
-            chromSizesDf = chromSizesDf[[0,1]].rename( {0 : 'chr', 1 : 'max'}, axis=1 )
-
-        if len(genomeFileName) == 0:
-            print("A genome file should be passed in order to generate FASTA output.")
-            return 0
-        elif not os.path.isfile(genomeFileName):
-            print("The genome file at {} could not be found.".format(genomeFileName))
-            return 0
+        chromSizesDf = pd.read_table( chromSizesFileName, sep="\t", header=None )
+        chromSizesDf = chromSizesDf[[0,1]].rename( {0 : 'chr', 1 : 'max'}, axis=1 )
 
     outputDf, chipFragmentNumbers, controlFragmentNumbers = performChipSeq( sequences=sequences, spEnergies=spEnergies,
                             numCells=numCells, depth=depth, pAmp=pAmp,
