@@ -516,6 +516,63 @@ The reads in the `_R1` and `_R2` files are designed to map in the `FR` orientati
 
 ![IGV snapshot of region_7 with paired end reads of 50 bp length](examples/igv_region_7_snapshot_paired_50bp.png)
 
+### Specifying summit coordinates in input file
+
+In the basic example above, the summit of each peak region passed into ChIPulate is assumed to be the midpoint between the `start` and `end` coordinate of each region. ChIPulate considers the summit to be the location at which a binding event has occurred, and thus assumes that the mid-points of fragments in the ChIP sample are centered at the summit. 
+
+If a `summit` column is specified in the input file, where the summit position is defined with respect to the `start` position of each genomic region, then ChIPulate will use this column as the location of the TF-DNA binding event in each region. The following is a way of specifying the summits for each region ---
+
+	chr	start	end	summit	p_ext	p_amp	energy_A
+	chr1	1523	1773	74	0.539179	0.18	0.15
+	chr1	5612	5862	103	0.505944	0.58	0.15
+	chr1	11241	11491	100	0.498672	0.58	0.41
+	chr1	11620	11870	43	0.479857	0.79	0.15
+	chr1	20066	20316	18	0.494356	0.58	1.15
+	chr1	22716	22966	127	0.554812	0.58	0.15
+	chr1	35534	35784	87	0.545281	0.38	0.41
+	chr1	48914	49164	17	0.492197	0.58	9.41
+	chr1	92766	93016	175	0.503651	0.58	0.41
+	chr1	156041	156241	120	0.578344	0.28	0.15
+
+The summit in the first region is thus `74` bp inside the region `chr1:1524-1773` and is thus located at `chr1:1598`.
+
+A ChIP-seq peak with multiple binding events and thus, multiple summits, can be simulated by providing multiple entries in the input file that share the same `(chr,start,end)` coordinates but possess different summits --- 
+
+	chr	start	end	summit	p_ext	p_amp	energy_A
+	chr1	1523	1773	74	0.539179	0.18	0.15
+	chr1	5612	5862	103	0.505944	0.58	0.15
+	chr1	11241	11491	100	0.498672	0.58	0.41
+	chr1	11620	11870	43	0.479857	0.79	0.15
+	chr1	20066	20316	18	0.494356	0.58	1.15
+	chr1	20066	20316	58	0.494356	0.58	2.90
+	chr1	20066	20316	123	0.494356	0.58	1.55
+	chr1	22716	22966	127	0.554812	0.58	0.15
+	chr1	35534	35784	87	0.545281	0.38	0.41
+	chr1	48914	49164	17	0.492197	0.58	9.41
+	chr1	92766	93016	175	0.503651	0.58	0.41
+	chr1	156041	156241	120	0.578344	0.28	0.15
+
+In the example above, the peak `chr1:20066-20316` contains three summits at positions `18,58` and `123`. Note that the binding energies and other parameters can differ between these entries. 
+
+### Specifying region names
+
+If no `name` column is specified in the input file, ChIPulate will refer to each location as `region_1`,`region_2`,... . A `name` column can be specified as below ---
+
+	chr	start	end	name	summit	p_ext	p_amp	energy_A
+	chr1	1523	1773	peak_1	74	0.539179	0.18	0.15
+	chr1	5612	5862	peak_100	103	0.505944	0.58	0.15
+	chr1	11241	11491	peak_50	100	0.498672	0.58	0.41
+	chr1	11620	11870	peak_20	43	0.479857	0.79	0.15
+	chr1	20066	20316	peak_21	18	0.494356	0.58	1.15
+	chr1	20066	20316	peak_21_summit_2	58	0.494356	0.58	2.90
+	chr1	20066	20316	peak_21_diffmotif	123	0.494356	0.58	1.55
+	chr1	22716	22966	false_pos_1 127	0.554812	0.58	0.15
+	chr1	35534	35784	false_pos_2 87	0.545281	0.38	0.41
+	chr1	48914	49164	hotspot_3	17	0.492197	0.58	9.41
+	chr1	92766	93016	hotspot_15	175	0.503651	0.58	0.41
+	chr1	156041	156241	peak_121	120	0.578344	0.28	0.15
+
+The name supplied to each region need not be unique and this will not cause any error in the ChIPulate output. However, this may make it more difficult to mark duplicate reads based on the name of the read. For this reason, it is recommended that the `name` column contain unique entries, or is left blank unless needed. 
 
 ## Notes on parameters and performance of ChIPulate
 
