@@ -485,22 +485,22 @@ def validateBedFasta( args ):
     terminateFlag = False
 
     if len(chromSizesFileName) == 0:
-        print("A chrom.sizes file should be passed in order to generate BED/FASTA output.", file=sys.stderr,file=sys.stderr)
+        print("A chrom.sizes file should be passed in order to generate BED/FASTA output.", file=sys.stderr)
         terminateFlag = True
     elif not os.path.isfile(chromSizesFileName):
-        print("The chrom.sizes file at {} could not be found.".format(chromSizesFileName), file=sys.stderr,file=sys.stderr)
+        print("The chrom.sizes file at {} could not be found.".format(chromSizesFileName), file=sys.stderr)
         terminateFlag = True
     else:
         chromSizesDf = pd.read_table( chromSizesFileName, sep="\t", header=None )
         if not np.issubdtype( chromSizesDf[1].dtype, np.number ):
-            print( "Second column of chrom.sizes file should contain numeric data.", file=sys.stderr,file=sys.stderr)
+            print( "Second column of chrom.sizes file should contain numeric data.", file=sys.stderr)
             terminateFlag = True
         elif chromSizesDf.shape[0] == 0:
             print( "Chrom.sizes file appears empty." ,file=sys.stderr)
             terminateFlag = True
 
     if len(genomeFileName) == 0:
-        print("A genome file should be passed in order to generate FASTA output.", file=sys.stderr,file=sys.stderr)
+        print("A genome file should be passed in order to generate FASTA output.", file=sys.stderr)
         terminateFlag = True
     elif not os.path.isfile(genomeFileName):
         print("The genome file at {} could not be found.".format(genomeFileName),file=sys.stderr)
@@ -516,7 +516,7 @@ def validateBedFasta( args ):
             terminateFlag = True
 
     if readLength > 0 and fragmentLength > 0 and fragmentLength < readLength:
-        print("Fragment length specified ({} bp) is lower than the read length specified ({} bp). Read length must be less than fragment length.".format( fragmentLength, readLength), file=sys.stderr ,file=sys.stderr) 
+        print("Fragment length specified ({} bp) is lower than the read length specified ({} bp). Read length must be less than fragment length.".format( fragmentLength, readLength), file=sys.stderr) 
 
     return terminateFlag 
 
