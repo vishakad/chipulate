@@ -446,7 +446,7 @@ In addition to these two `.bed` files, two FASTQ files are generated --- `fastq-
 
 The read names correspond to the read names generated in the respective BED files, and indicate the strand orientation (`+/-`) in parentheses. By default, the maximum base quality is set at `K` in the Phred-33 scale. 
 
-The figure below is a snap-shot of reads aligned to `region_1`. To generate this image, reads from both chip and control samples were aligned to the yeast genome (`examples/yeast-genome.fa`) using `bwa`, and the resulting SAM files were converted to BAM, sorted, and indexed, using `samtools`. The sorted BAM files obtained were input to Integrated Genome Viewer (IGV). The reads aligned to `region_3` (the genomic interval `chr1:35534-35784`) in both ChIP and input samples are shown below ---
+The figure below is a snap-shot of reads aligned to `region_7`. To generate this image, reads from both chip and control samples were aligned to the yeast genome (`examples/yeast-genome.fa`) using `bwa`, and the resulting SAM files were converted to BAM, sorted, and indexed, using `samtools`. The sorted BAM files obtained were input to Integrated Genome Viewer (IGV). The reads aligned to `region_7` (the genomic interval `chr1:35534-35784`) in both ChIP and input samples are shown below ---
 
 ![IGV snapshot of region_7 when --fragment-jitter is set to 20](examples/igv_region_7_snapshot1.png)
 
@@ -510,7 +510,12 @@ The corresponding reads from the reverse strand, stored in `fastq-test.chip_read
 	AACAAGGACAACGGGGGTCATCAAAATTTACCTTAACGTATGAGACAAAAAAATTCACGTTACGATGAGGATAACGATATCAAGACAGTAAAATATTAATACTGTTGCACGCATGAAAGTTCTCAAGTTGTCTGCCCTTTGTAAGAACGT
 	+
 
-The reads in the `_R1` and `_R2` files are designed to map in the `FR` orientation, with a fixed insert size that is equal to the fragment length specified by the `--fragment-length` parameter. 
+The reads in the `_R1` and `_R2` files are designed to map in the `FR` orientation, with a fixed insert size that is equal to the fragment length specified by the `--fragment-length` parameter. The IGV snapshot below was obtained from running ChIPulate with a read length of 50 bp in paired end mode, where the fragment length is left at the default value of 200 bp ---
+
+	python3 chipulate.py --input-file examples/fastq-basicExample.tsv --genome-file examples/yeast-genome.fa --chrom-size-file examples/yeast-genome.fa.fai --output-dir examples/ --library-type paired-end --read-length 50
+
+![IGV snapshot of region_7 with paired end reads of 50 bp length](igv_region_7_snapshot_paired_50bp.png)
+
 
 ## Notes on parameters and performance of ChIPulate
 
