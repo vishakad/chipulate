@@ -176,7 +176,7 @@ def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100,
 
     return [genome,chipSeq.chipFragmentNumbers,chipSeq.controlFragmentNumbers]
 
-def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, fragmentLength=200, readLength=42, fragmentJitter=40, outputDir=""  ):
+def makeBedSE( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, fragmentLength=200, readLength=42, fragmentJitter=40, outputDir=""  ):
     fileNames = []
     for (fileName,fragmentStr,readsToDuplicate) in zip(['chip_reads.bed','control_reads.bed'],['chip_reads','control_reads'],[chipFragmentNumbers,controlFragmentNumbers]):
         numFragments = genome[fragmentStr].sum()
@@ -201,15 +201,12 @@ def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSi
 
         regionNames = bedDf['name'].values
         if fragmentStr == 'chip_reads':
-            #uniqueFragmentMidPoints = np.repeat( bedDf['start'].values + bedDf['summit'].values, genome[uniqueFragmentStr])
-            #uniqueFragmentStartPos = np.random.normal( uniqueFragmentMidPoints, fragmentJitter, size=numUniqueFragments ).astype(np.int64)
             uniqueFragmentMidPoints = np.repeat( bedDf['start'].values + bedDf['summit'].values, genome[uniqueFragmentStr])
             uniqueFragmentStartPos = np.random.normal( uniqueFragmentMidPoints - fragmentLength/2, fragmentJitter, size=numUniqueFragments ).astype(np.int64)
         elif fragmentStr == 'control_reads':
             uniqueFragmentMidPoints = np.repeat( bedDf['start'].values, genome[uniqueFragmentStr] )
             lengths = bedDf['end'].values - bedDf['start'].values
             lengths = np.repeat( lengths, genome[uniqueFragmentStr] )
-            #uniqueFragmentStartPos = np.int64( uniqueFragmentMidPoints + lengths * np.random.random( size=numUniqueFragments ) )
             uniqueFragmentStartPos = np.int64( uniqueFragmentMidPoints + lengths * np.random.random( size=numUniqueFragments ) - fragmentLength/2 )
         
         uniqueReadNames = np.zeros( numUniqueFragments, dtype=np.object ) 
@@ -556,7 +553,7 @@ def main():
         inputDf.loc[:,'name'] = outputDf['name'].values
 
     if generateIntervals:
-        bedFileNames = makeBed( inputDf[bedCols], outputDf, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, outputDir=outputDir, readLength=readLength, fragmentLength=fragmentLength, fragmentJitter=fragmentJitter )
+        bedFileNames = makeBedSE( inputDf[bedCols], outputDf, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, outputDir=outputDir, readLength=readLength, fragmentLength=fragmentLength, fragmentJitter=fragmentJitter )
 
         makeFastq( bedFileNames, genomeFileName, readLength )
 
