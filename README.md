@@ -113,6 +113,19 @@ These packages can be installed using the Python3 ```pip``` installer with the c
 				in the ChIP sample only. This parameter does not
 				affect the starting position of fragments in the
 				control sample. (default: 20)
+				
+	  --library-type LIBRARY_TYPE
+				Type of sequencing library. This can be set to either
+				"single-end" or "paired-end". If single-end is
+				specified, a single BED and FASTQ file is generated
+				for ChIP and control samples. If "paired-end" is
+				specified, paired-end reads are simulated. In this
+				case, two sets of BED and FASTQ files are produced for
+				each of the ChIP and control samples.The BED and FASTQ
+				files containing reads from the forward and reverse
+				strands are suffixed with _R1 and _R2, respectively.
+				(default: single-end)
+				
 	
 ## Input file
 	
@@ -350,7 +363,7 @@ When the command ```python3 chipulate.py -i examples/coopExample.tsv --output-di
 
 ## Running ChIPulate to generate FASTQ files from genomic regions
 
-### Basic example
+### Basic example (single-end reads)
 In order to run ChIPulate in FASTQ generation mode, genomic intervals need to be specified for each entry in the input file. An example of this is the `examples/fastq-basicExample.tsv` file shown below---
 
 	chr	start	end	p_ext	p_amp	energy_A
@@ -431,13 +444,78 @@ In addition to these two `.bed` files, two FASTQ files are generated --- `fastq-
 	GGTGCTTTATACAGTAAGGCAAACAAGGACAACGGGGGTCATCAAAATTTACCTTAACGTATGAGACAAAAAAATTCACGTTACGATGAGGATAACGATATCAAGACAGTAAAATATTAATACTGTTGCACGCATGAAAGTTCTCAAGTT
 	+
 
-The read names correspond to the read names generated in the respective BED files, and indicate the strand orientation (`+/-`) in parentheses. By default, the maximum base quality is set at `K` in the Phred-33 scale. ChIPulate currently only supports the generation of single-end reads. 
+The read names correspond to the read names generated in the respective BED files, and indicate the strand orientation (`+/-`) in parentheses. By default, the maximum base quality is set at `K` in the Phred-33 scale. 
 
-The figure below is a snap-shot of reads aligned to `region_1`. To generate this image, reads from both chip and control samples were aligned to the yeast genome (`examples/yeast-genome.fa`) using `bwa`, and the resulting SAM files were converted to BAM, sorted, and indexed, using `samtools`. The sorted BAM files obtained were input to Integrated Genome Viewer (IGV). The reads aligned to `region_3` (the genomic interval `chr1:11241-11491`) in both ChIP and input samples are shown below ---
+The figure below is a snap-shot of reads aligned to `region_7`. To generate this image, reads from both chip and control samples were aligned to the yeast genome (`examples/yeast-genome.fa`) using `bwa`, and the resulting SAM files were converted to BAM, sorted, and indexed, using `samtools`. The sorted BAM files obtained were input to Integrated Genome Viewer (IGV). The reads aligned to `region_7` (the genomic interval `chr1:35534-35784`) in both ChIP and input samples are shown below ---
 
+![IGV snapshot of region_7 when --fragment-jitter is set to 20](examples/igv_region_7_snapshot1.png)
 
+The read length and fragment length can be altered by specifying the `--read-length` and `--fragment-length` parameter. In the snapshot above, these were both set to their default values (150 bp and 200 bp respectively). The `--fragment-jitter` parameter was set to 20 bp.  An increase in the `--fragment-jitter` parameter "smears" out the reads by increasing the variability of the start positions of fragments. To see this, run the following command, where the fragment jitter is set to 50 bp --- 
 
-The read length and fragment length can be altered by specifying the `--read-length` and `--fragment-length` parameter. 
+	python3 chipulate.py --input-file examples/fastq-basicExample.tsv --genome-file examples/yeast-genome.fa --chrom-size-file examples/yeast-genome.fa.fai --output-dir examples/ --fragment-jitter 50
+
+The reads obtained from this run are shown in the snapshot below. The increase in the apparent extent of the peak in `region_7` can be clearly seen.
+
+![IGV snapshot of region_7 when --fragment-jitter is set to 50](examples/igv_region_7_snapshot2.png)
+
+### Paired-end mode
+
+Specifying `--libraryType paired-end` allows ChIPulate to output paired-end reads ---
+
+	python3 chipulate.py --input-file examples/fastq-basicExample.tsv --genome-file examples/yeast-genome.fa --chrom-size-file examples/yeast-genome.fa.fai --output-dir examples/
+
+In this case, two sets of BED and FASTQ files are generated for the ChIP and control samples. Reads mapping to the forward strands are stored in files suffixed with `_R1` and those mapping to the reverse strand are stored in files suffixed with `_R2`. The above command creates four BED files and four FASTQ files in the`examples/` folder with the filename prefixes as  `fastq-test.chip_reads_R1.bed`,`fastq-test.chip_reads_R2`, `fastq-test.control_reads_R1`, `fastq-test.control_reads_R2`. The read names in the `_R1` file end in `/1` and the read from the other end of the fragment ends in `/2`. An example is shown below from `fastq-test.chip_reads_R1.fastq` and `fastq-test.chip_reads_R2.fastq` ---
+
+The first five reads in `fast-test.chip_reads_R1.fastq` are
+
+	@region_2_read_1/1
+	CAAATGCACTAATATTGTAACGTTCTTACAAAGGGCAGACAACTTGAGAACTTTCATGCGTGCAACAGTATTAATATTTTACTGTCTTGATATCGTTATCCTCATCGTAACGTGAATTTTTTTGTCTCATACGTTAAGGTAAATTTTGAT
+	+
+	KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+	@region_2_read_2/1
+	TATTATGTGGCCGAATCAACATTAATCAAATGCACTAATATTGTAACGTTCTTACAAAGGGCAGACAACTTGAGAACTTTCATGCGTGCAACAGTATTAATATTTTACTGTCTTGATATCGTTATCCTCATCGTAACGTGAATTTTTTTG
+	+
+	KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+	@region_2_read_3/1
+	TGTGGCCGAATCAACATTAATCAAATGCACTAATATTGTAACGTTCTTACAAAGGGCAGACAACTTGAGAACTTTCATGCGTGCAACAGTATTAATATTTTACTGTCTTGATATCGTTATCCTCATCGTAACGTGAATTTTTTTGTCTCA
+	+
+	KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+	@region_2_read_4/1
+	TTATTATGTGGCCGAATCAACATTAATCAAATGCACTAATATTGTAACGTTCTTACAAAGGGCAGACAACTTGAGAACTTTCATGCGTGCAACAGTATTAATATTTTACTGTCTTGATATCGTTATCCTCATCGTAACGTGAATTTTTTT
+	+
+	KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+	@region_2_read_5/1
+	AACTTTATTATGTGGCCGAATCAACATTAATCAAATGCACTAATATTGTAACGTTCTTACAAAGGGCAGACAACTTGAGAACTTTCATGCGTGCAACAGTATTAATATTTTACTGTCTTGATATCGTTATCCTCATCGTAACGTGAATTT
+	+
+
+The corresponding reads from the reverse strand, stored in `fastq-test.chip_reads_R2.fastq` are 
+
+	@region_2_read_1/2
+	ACAATAAAAGGGTGCTTTATACAGTAAGGCAAACAAGGACAACGGGGGTCATCAAAATTTACCTTAACGTATGAGACAAAAAAATTCACGTTACGATGAGGATAACGATATCAAGACAGTAAAATATTAATACTGTTGCACGCATGAAAG
+	+
+	KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+	@region_2_read_2/2
+	AGGCAAACAAGGACAACGGGGGTCATCAAAATTTACCTTAACGTATGAGACAAAAAAATTCACGTTACGATGAGGATAACGATATCAAGACAGTAAAATATTAATACTGTTGCACGCATGAAAGTTCTCAAGTTGTCTGCCCTTTGTAAG
+	+
+	KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+	@region_2_read_3/2
+	CAGTAAGGCAAACAAGGACAACGGGGGTCATCAAAATTTACCTTAACGTATGAGACAAAAAAATTCACGTTACGATGAGGATAACGATATCAAGACAGTAAAATATTAATACTGTTGCACGCATGAAAGTTCTCAAGTTGTCTGCCCTTT
+	+
+	KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+	@region_2_read_4/2
+	GGCAAACAAGGACAACGGGGGTCATCAAAATTTACCTTAACGTATGAGACAAAAAAATTCACGTTACGATGAGGATAACGATATCAAGACAGTAAAATATTAATACTGTTGCACGCATGAAAGTTCTCAAGTTGTCTGCCCTTTGTAAGA
+	+
+	KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+	@region_2_read_5/2
+	AACAAGGACAACGGGGGTCATCAAAATTTACCTTAACGTATGAGACAAAAAAATTCACGTTACGATGAGGATAACGATATCAAGACAGTAAAATATTAATACTGTTGCACGCATGAAAGTTCTCAAGTTGTCTGCCCTTTGTAAGAACGT
+	+
+
+The reads in the `_R1` and `_R2` files are designed to map in the `FR` orientation, with a fixed insert size that is equal to the fragment length specified by the `--fragment-length` parameter. The IGV snapshot below was obtained from running ChIPulate with a read length of 50 bp in paired end mode, where the fragment length is left at the default value of 200 bp ---
+
+	python3 chipulate.py --input-file examples/fastq-basicExample.tsv --genome-file examples/yeast-genome.fa --chrom-size-file examples/yeast-genome.fa.fai --output-dir examples/ --library-type paired-end --read-length 50
+
+![IGV snapshot of region_7 with paired end reads of 50 bp length](igv_region_7_snapshot_paired_50bp.png)
+
 
 ## Notes on parameters and performance of ChIPulate
 
