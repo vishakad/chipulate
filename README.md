@@ -514,7 +514,7 @@ The reads in the `_R1` and `_R2` files are designed to map in the `FR` orientati
 
 	python3 chipulate.py --input-file examples/fastq-basicExample.tsv --genome-file examples/yeast-genome.fa --chrom-size-file examples/yeast-genome.fa.fai --output-dir examples/ --library-type paired-end --read-length 50
 
-![IGV snapshot of region_7 with paired end reads of 50 bp length](igv_region_7_snapshot_paired_50bp.png)
+![IGV snapshot of region_7 with paired end reads of 50 bp length](examples/igv_region_7_snapshot_paired_50bp.png)
 
 
 ## Notes on parameters and performance of ChIPulate
