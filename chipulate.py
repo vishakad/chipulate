@@ -24,7 +24,7 @@ def makeArray( val, N ):
 
 def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100,
                    pExt=1.0, pAmp=0.58, pcrCycles=15, bgEnergy=1,
-                   chemicalPotential=3, secondTFspEnergies=[],
+                   chemicalPotential=3, secondTFspEnergies=[], names=[], 
                    secondTFchemicalPotential=0, chromAccessibility=[],
                    secondTFintEnergies=[], indirectLocations=[], controlCellRatio=1.0, generateIntervals=True ):
     """
@@ -65,6 +65,8 @@ def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100,
     and input samples.
 
     secondTFspEnergies --- Binding energies of the second TF. 
+
+    names --- Names for each region.
 
     secondTFchemicalPotential --- Chemical potential of the second TF. 
 
@@ -157,7 +159,7 @@ def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100,
                                    secondTFchemicalPotential=secondTFchemicalPotential,
                                    secondTFintEnergies=secondTFintEnergies,
                                    indirectLocations=indirectLocations,
-                                   controlCellRatio=controlCellRatio,
+                                   controlCellRatio=controlCellRatio, names=names,
                                    chromAccessibility=chromAccessibility  )
 
     pExtControl = makeArray( pExtControl, N )
@@ -393,7 +395,7 @@ parser.add_argument( '--library-type', help='Type of sequencing library. This ca
 
 args = parser.parse_args()
 
-def validateInput( df, args ):
+def validateAndAutofillInput( df, args ):
     numLocations = df.shape[0]
     terminateFlag = False
     allowedColumnNames = ['chr','start','end','name','summit','p_ext','p_amp','energy_A','energy_B','sequence','binding_type','int_energy']
@@ -473,7 +475,7 @@ def validateInput( df, args ):
 
     return [terminateFlag,df]
 
-def validateBedFasta( args ):
+def validateBedFastaAndAutofillInput( df, args ):
     chromSizesFileName = args.chrom_size_file
     genomeFileName = args.genome_file
     readLength = args.read_length
@@ -517,7 +519,39 @@ def validateBedFasta( args ):
     if readLength > 0 and fragmentLength > 0 and fragmentLength < readLength:
         print("Fragment length specified ({} bp) is lower than the read length specified ({} bp). Read length must be less than fragment length.".format( fragmentLength, readLength), file=sys.stderr) 
 
-    return terminateFlag 
+
+    #Assign random summits to each region if no summit was specified.
+    if 'summit' not in df.columns:
+        starts = df['start'].values
+        ends = df['end'].values
+        df.loc[:,'summit'] = df.eval( '(end-start)/2' )
+    else:
+        if df.query('summit < 0').shape[0] > 0:
+            print("Summit positions must be positive.", file=sys.stderr)
+            terminateFlag = True
+
+        df.loc[:,'strand'] = '.'
+
+    if 'name' in df.columns:
+        df.loc[:,'name'] = df['name'].values
+        dups = df['name'].duplicated()
+        if np.sum( dups ) > 0:
+            print("The following sets of regions have identical names : ", file=sys.stderr)
+            print( df.loc[dups,['chr','start','end','summit','name']].unique().tolist(), file=sys.stderr )
+            print("Ensure that each ('chr','start','end','summit') entry has a unique name.")
+            terminateFlag = True
+    else:
+        df.loc[:,'name'] =  ['region_' + str(idx) for idx in range( 1, df.shape[0]+1 )]
+
+    #Ensure that no (chr,start,end,summit) positions are repeated.
+    dups = df[['chr','start','end','summit']].duplicated()
+    if np.sum( dups ) > 0:
+        print("The following regions have identical (chr,start,end,summit) coordinates : ", file=sys.stderr)
+        print( df.loc[dups,['chr','start','end','summit']], file=sys.stderr )
+        print("Ensure that the regions passed do not have duplicate (chr,start,end,summit) coordinates. You could specify different summits for each (chr,start,end) region, or delete the duplicate entries.", file=sys.stderr)
+        terminateFlag = True
+
+    return [terminateFlag,df]
 
 def main():
     inputFileName = args.input_file
@@ -540,10 +574,10 @@ def main():
     inputDf = pd.read_csv( inputFileName, sep="\t" )
     numLocations = inputDf.shape[0]
 
-    terminateFlagInput, inputDf = validateInput( inputDf, args ) 
+    terminateFlagInput, inputDf = validateAndAutofillInput( inputDf, args ) 
     if 'chr' in inputDf.columns and 'start' in inputDf.columns and 'end' in inputDf.columns:
         generateIntervals = True
-        terminateFlagBedFasta = validateBedFasta( args )
+        terminateFlagBedFasta, inputDf = validateBedFastaAndAutofillInput( inputDf, args )
     
     depth = args.depth
     numCells = args.num_cells
@@ -560,7 +594,7 @@ def main():
     libraryType = args.library_type
 
     if terminateFlagBedFasta or terminateFlagInput :
-        print("Error encountered in input. Aborting.", file=sys.stderr)
+        print("Error(s) encountered in input. See output above. Aborting.", file=sys.stderr)
         return 0
 
     spEnergies = inputDf['energy_A']
@@ -589,23 +623,9 @@ def main():
     else:
         chromAccessibility = []
 
-    bedCols = []
-    if generateIntervals:
-        bedCols = ['chr','start','end','name','summit','strand']
-
-        #Assign random summits to each region.
-        if 'summit' not in inputDf.columns:
-            starts = inputDf['start'].values
-            ends = inputDf['end'].values
-            inputDf.loc[:,'summit'] = inputDf.eval( '(end-start)/2' )
-
-        inputDf.loc[:,'strand'] = '.'
-        chromSizesDf = pd.read_table( chromSizesFileName, sep="\t", header=None )
-        chromSizesDf = chromSizesDf[[0,1]].rename( {0 : 'chr', 1 : 'max'}, axis=1 )
-
     outputDf, chipFragmentNumbers, controlFragmentNumbers = performChipSeq( sequences=sequences, spEnergies=spEnergies,
                             numCells=numCells, depth=depth, pAmp=pAmp,
-                            pExt=pExt, pcrCycles=pcrCycles,
+                            pExt=pExt, pcrCycles=pcrCycles, names=inputDf['name'].values,
                             bgEnergy=inputBgEnergy, controlCellRatio=controlCellRatio,
                             chemicalPotential=chemicalPotentialA,
                             secondTFspEnergies=secondTFspEnergies,
@@ -613,10 +633,11 @@ def main():
                             chromAccessibility=chromAccessibility,
                             indirectLocations=indirectLocations, generateIntervals=generateIntervals )
 
-    if 'name' not in inputDf.columns:
-        inputDf.loc[:,'name'] = outputDf['name'].values
-
     if generateIntervals:
+        bedCols = ['chr','start','end','name','summit','strand']
+        chromSizesDf = pd.read_table( chromSizesFileName, sep="\t", header=None )
+        chromSizesDf = chromSizesDf[[0,1]].rename( {0 : 'chr', 1 : 'max'}, axis=1 )
+
         bedFileNames = makeBed( inputDf[bedCols], outputDf, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, outputDir=outputDir, readLength=readLength, fragmentLength=fragmentLength, fragmentJitter=fragmentJitter, libraryType=libraryType )
 
         makeFastq( bedFileNames, genomeFileName, readLength, libraryType=libraryType )
