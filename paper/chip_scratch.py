@@ -535,6 +535,7 @@ def singleTFmain(makePlot=False,prior='uniform',priorParams=[],maxReplicates=5):
 
 def main():
     singleTFmain(prior='powerLaw',maxReplicates=5,priorParams=[0.5,0,10])
+    
 
 if __name__ == "__main__":
     main()
