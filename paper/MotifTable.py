@@ -2,6 +2,7 @@ import numpy as np
 from os import path
 from itertools import product
 from pandas import read_table
+import h5py
 
 #This is the Tye7 energy matrix from the BEEML database, extracted from
 #gr09.v2_Tye7-11_deBruijn.pwm.txt in the collection downloaded from
@@ -32,9 +33,9 @@ class MotifTable:
         """
         if len(pwm) == 0 and tf.upper() not in ['TYE7','CBF1']:
             pwm = loadMotif( tf )
-        elif tf.upper() == 'TYE7':
+        elif tf.upper() == 'TYE7' and len(pwm) == 0:
             pwm = Tye7 
-        elif tf.upper() == 'CBF1':
+        elif tf.upper() == 'CBF1' and len(pwm) == 0:
             pwm = Cbf1
 
         self.pwm = pwm
@@ -46,7 +47,7 @@ class MotifTable:
         self.maxEnergy = np.max( self.pwm, axis=1 ).sum()
         self.minEnergy = np.min( self.pwm, axis=1 ).sum()
 
-    def getInformation( self, sequences ):
+    def getInformation( self, sequences, returnPos=False ):
         """
         This function uses the PWM stored in the object and computes the motif
         scores of binding site sequences that are passed to it. 
@@ -60,6 +61,7 @@ class MotifTable:
         the sequences passed to the function.
         """
         locDict = {'A' : 0, 'C' : 1, 'G' : 2, 'T' : 3}
+        revCompDict = {'A' : 'T', 'C' : 'G', 'G' : 'C', 'T' : 'A'}
         if type(sequences) == 'str':
             sequences = [sequences]
 
@@ -74,33 +76,58 @@ class MotifTable:
         pwmPositions = range( pwmLen )
 
         idx = 0
+        motifPos = np.zeros( len(sequences), dtype=np.int )
+
         for sequence in sequences:
+            revCompSequence = [revCompDict[letter] for letter in sequence[::-1]]
             if 'N' in sequence:
                 information[idx] = np.nan
                 idx += 1
                 continue
 
             convertedSeq = np.zeros( len(sequence), dtype=np.int )
+            minScore = np.inf
+            maxPos = 0
 
-            pos = 0
-            for letter in sequence:
-                convertedSeq[pos] = locDict[letter]
-                pos += 1
+            if pwmLen == len(sequence):
+                posRange = [0]
+            else:
+                posRange = range(len(sequence)-pwmLen)
 
-            letterList = convertedSeq[0:pwmLen]
-            information[idx] = pwm[pwmPositions,letterList].sum()
+            for bindingSitePos in posRange:
+                bindingSite = sequence[bindingSitePos:(bindingSitePos + pwmLen)]
+                revCompSite = revCompSequence[bindingSitePos:(bindingSitePos + pwmLen)]
+                
+                for site in [bindingSite,revCompSite]:
+                    pos = 0
+                    for letter in site:
+                        convertedSeq[pos] = locDict[letter]
+                        pos += 1
+
+                    letterList = convertedSeq[0:pwmLen]
+                    score = pwm[pwmPositions,letterList].sum()
+
+                    if score < minScore:
+                        maxPos = bindingSitePos
+                        minScore = score
+        
+            information[idx] = minScore
+            motifPos[idx] = maxPos
                 
             idx += 1
 
-        return information
+        if returnPos:
+            return [information, motifPos]
+        else:
+            return information
 
-    def sampleFromDistribution( self, energies ):
+    def sampleFromDistribution( self, energiesRequested ):
         """
         This function finds sequences whose binding energies closely match those
         of the energies passed to the function. 
 
         Input : 
-        energies --- An array of N values that are positive mismatch binding
+        energiesRequested --- An array of N values that are positive mismatch binding
         energies. 
         
         Output : 
@@ -129,45 +156,108 @@ class MotifTable:
             pwm = self.pwm
             
         pwmLen = pwm.shape[0]
+        alreadyComputed = True
 
-        if path.isfile( outputEnergiesFile ) and path.isfile( outputSequencesFile ):
-            allEnergies = np.load( outputEnergiesFile )
-            allSequences = np.load( outputSequencesFile )
+        if self.tf.upper() == 'TYE7L16S1':
+            allEnergies = np.array( [] )
+            allSequences = np.array( [] )
+            for storeChunk in [1,2]:
+                outputEnergiesFile = path.join( 'data', 'energies', '{}.all_energies_part{}.npy'.format( self.tf.upper(), storeChunk  ) )
+                outputSequencesFile = path.join( 'data', 'energies', '{}.all_sequences_part{}.npy'.format( self.tf.upper(), storeChunk ) )
+                if not path.isfile( outputEnergiesFile ) or not path.isfile( outputSequencesFile ):
+                    alreadyComputed = False
+                    break
+                energies = np.load( outputEnergiesFile )
+                sequences = np.load( outputSequencesFile )
+                allEnergies = np.append( allEnergies, energies )
+                if len(allSequences) > 0:
+                    allSequences = np.append( allSequences, sequences,axis=0 )
+                else:
+                    allSequences = sequences
         else:
+            if path.isfile( outputEnergiesFile ) and path.isfile( outputSequencesFile ):
+                allEnergies = np.load( outputEnergiesFile )
+                allSequences = np.load( outputSequencesFile )
+            else:
+                alreadyComputed = False
+
+        if not alreadyComputed:
             alphabet = [0,1,2,3]
             pwmRange = range(pwmLen)
             #The product function from itertools helps generate all possible
             #binding site sequences
-            sequenceIterator = product( alphabet, repeat=pwmLen)
+            sequenceIterator = product( alphabet, repeat=pwmLen )
 
             numSequences = 4 ** pwmLen
-            allEnergies = np.zeros( numSequences, dtype=np.float )
-            allSequences = np.zeros( (numSequences,pwmLen), dtype=np.uint8 )
-            idx = 0
-            for sequence in sequenceIterator:
-                allSequences[idx] = sequence
-                allEnergies[idx] = pwm[pwmRange,sequence].sum()
-                idx += 1
+            if pwmLen <= 12:
+                allEnergies = np.zeros( numSequences, dtype=np.float )
+                allSequences = np.zeros( (numSequences,pwmLen), dtype=np.uint8 )
+                idx = 0
+                for sequence in sequenceIterator:
+                    allSequences[idx] = sequence
+                    allEnergies[idx] = pwm[pwmRange,sequence].sum()
 
-            #The outputEnergiesFile and outputSequencesFile are created anew
-            #in case no such file has been created for the TF associated
-            #with the matrix. 
-            np.save( outputEnergiesFile, allEnergies, allow_pickle=False )
-            np.save( outputSequencesFile, allSequences, allow_pickle=False )
+                    idx += 1
 
-        if np.sum( energies < self.minEnergy ) > 0:
+                #The outputEnergiesFile and outputSequencesFile are created anew
+                #in case no such file has been created for the TF associated
+                #with the matrix. 
+                np.save( outputEnergiesFile, allEnergies, allow_pickle=False )
+                np.save( outputSequencesFile, allSequences, allow_pickle=False )
+            else:
+                chunkSize = 4 ** 12
+                numChunks = int( numSequences/chunkSize )
+
+                seqIdx = 1
+                chunk = 0
+
+                energies = np.zeros(  chunkSize, dtype=np.float )
+                sequences = np.zeros( (chunkSize,pwmLen), dtype=np.uint8 )
+                storeIdx = 0
+                storeChunk = 1
+                for sequence in sequenceIterator:
+                    arrIdx = seqIdx%chunkSize
+                    if arrIdx == 1:
+                        print( '{}/{}'.format( chunk+1, numChunks ) )
+                        chunk += 1
+
+                    energy = pwm[pwmRange,sequence].sum()
+                    if energy <= 11:
+                        sequences[storeIdx] = sequence
+                        energies[storeIdx] = energy
+                        storeIdx += 1
+
+                    if storeIdx == chunkSize:
+                        print("Writing now.")
+                        outputEnergiesFile = path.join( 'data', 'energies', '{}.all_energies_part{}.npy'.format( self.tf.upper(), storeChunk  ) )
+                        outputSequencesFile = path.join( 'data', 'energies', '{}.all_sequences_part{}.npy'.format( self.tf.upper(), storeChunk ) )
+                        np.save( outputEnergiesFile, energies, allow_pickle=False )
+                        np.save( outputSequencesFile, sequences, allow_pickle=False )
+                        storeChunk += 1
+                        storeIdx = 0
+
+                    seqIdx += 1
+
+                if storeIdx < chunkSize:
+                    outputEnergiesFile = path.join( 'data', 'energies', '{}.all_energies_part{}.npy'.format( self.tf.upper(), storeChunk  ) )
+                    outputSequencesFile = path.join( 'data', 'energies', '{}.all_sequences_part{}.npy'.format( self.tf.upper(), storeChunk ) )
+                    np.save( outputEnergiesFile, energies[:storeIdx], allow_pickle=False )
+                    np.save( outputSequencesFile, sequences[:storeIdx,:], allow_pickle=False )
+                  
+
+        if np.sum( energiesRequested < self.minEnergy ) > 0:
             print("{} sequences whose energies are less than {} have been set to {}".format( np.sum( energies < self.minEnergy ), self.minEnergy, self.minEnergy ) )
-            energies[energies < self.minEnergy] = self.minEnergy
+            energiesRequested[energiesRequested < self.minEnergy] = self.minEnergy
 
-        mask = (energies >= self.minEnergy ) & (energies <= self.maxEnergy)
+        mask = (energiesRequested >= self.minEnergy ) & (energiesRequested <= self.maxEnergy)
         if np.sum(~mask) > 0:
             print("{} sequences whose energies lie outside the range [{},{}] cannot be generated".format( np.sum(~mask), self.minEnergy, self.maxEnergy ))
-        energies = energies[mask]
+        energiesRequested = energiesRequested[mask]
 
         #Once all possible binding sites and their corresponding energies
         #are computed, we pick those binding sites are closest in energy
         #to the energies passed into this function. 
-        N = len(energies) 
+        N = len(energiesRequested) 
         sampledEnergies = np.zeros( N )
         sampledSequences = np.zeros( N, dtype=np.object )
         sortedIdxes = np.argsort( allEnergies )
@@ -175,12 +265,12 @@ class MotifTable:
         allSequences = allSequences[sortedIdxes]
 
         itr = 0
-        for energy in energies:
+        for energy in energiesRequested:
             idx = np.searchsorted( allEnergies, energy )
             sampledEnergies[itr] = allEnergies[idx]
             sampledSequences[itr] = "".join(revLocArr[allSequences[idx]])
             itr += 1
-
+        
         return [sampledEnergies,sampledSequences]
 
 def makeDinucBackground( numSequences, seqLen=10  ):
@@ -246,7 +336,7 @@ def loadMotif( tf ):
         pwmFileName = row['filename'].values[0]
         df = read_table( path.join( 'data', 'pbm_pwms', pwmFileName ) + '.pwm.txt', sep=' ', header=None  )
         mat = df.loc[:,1:].values  #This gets rid of the first column, which is a positional index
-        minEnergyMat = np.repeat( mat.min(axis=1), 4 ).reshape( (10,4) )
+        minEnergyMat = np.repeat( mat.min(axis=1), 4 ).reshape( mat.shape )
         mat -= minEnergyMat
         mat = mat.transpose()
         return mat

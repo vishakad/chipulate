@@ -519,7 +519,6 @@ def validateBedFastaAndAutofillInput( df, args ):
     if readLength > 0 and fragmentLength > 0 and fragmentLength < readLength:
         print("Fragment length specified ({} bp) is lower than the read length specified ({} bp). Read length must be less than fragment length.".format( fragmentLength, readLength), file=sys.stderr) 
 
-
     #Assign random summits to each region if no summit was specified.
     if 'summit' not in df.columns:
         starts = df['start'].values
@@ -534,12 +533,6 @@ def validateBedFastaAndAutofillInput( df, args ):
 
     if 'name' in df.columns:
         df.loc[:,'name'] = df['name'].values
-        dups = df['name'].duplicated()
-        if np.sum( dups ) > 0:
-            print("The following sets of regions have identical names : ", file=sys.stderr)
-            print( df.loc[dups,['chr','start','end','summit','name']].unique().tolist(), file=sys.stderr )
-            print("Ensure that each ('chr','start','end','summit') entry has a unique name.")
-            terminateFlag = True
     else:
         df.loc[:,'name'] =  ['region_' + str(idx) for idx in range( 1, df.shape[0]+1 )]
 
@@ -570,7 +563,6 @@ def main():
     diagOutputFileName = outputDir + '.chipulate.diag_output'
     runInfoOutputFileName = outputDir + '.chipulate.run_info'
 
-    #inputDf = pd.read_csv( inputFileName, sep="\t", skiprows=1, names=['p_ext','p_amp','energy_A','sequence','binding_type','energy_B','int_energy','chrom_accessibility'])
     inputDf = pd.read_csv( inputFileName, sep="\t" )
     numLocations = inputDf.shape[0]
 
