@@ -182,6 +182,7 @@ def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100,
 def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, fragmentLength=200, readLength=42, fragmentJitter=40, outputDir="", libraryType='single-end' ):
     fileNames = []
     outputPrefix = ""
+
     if len( outputDir ) == 0:
         outputPrefix = ""
     else:
@@ -263,9 +264,9 @@ def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSi
             readsDf2.loc[:,'strand'] = '-'
             readsDf2.loc[:,'name'] = readNames2
 
-        outOfBounds = readsDf.query( 'end > max' ).index.tolist()
+        outOfBounds = readsDf.query( 'end > maxEntry' ).index.tolist()
         readsLeftShift = 1 + np.random.randint( 10, size=len(outOfBounds) )
-        readsDf.loc[outOfBounds,'end'] = readsDf.loc[outOfBounds,'max'] - readsLeftShift
+        readsDf.loc[outOfBounds,'end'] = readsDf.loc[outOfBounds,'maxEntry'] - readsLeftShift
         readsDf.loc[outOfBounds,'start'] = readsDf.loc[outOfBounds,'start'] - readsLeftShift
         if len( outOfBounds ) > 0:
             print( "For the following {} fragment(s) in the {} sample, their right ends were at positions beyond the length of the chromosome. They were shifted to the left by upto 10 base pairs. This can be avoided by either setting a shorter fragment length, or choosing genomic regions away from chromosome ends.".format( len(outOfBounds), fragmentStr[:-6] ) )
@@ -295,8 +296,7 @@ def makeFastq( bedFileNames, genomeFileName, readLength, outputDir="", readError
             #regionsFile.save_seqs( '{}.{}'.format( outputDir, fastaFileName ) )
             fastqFile = open( '{}.{}'.format( outputDir, fastqFileName ), 'w' )
 
-
-        fastaFile = open(regionsFile.seqfn)
+        fastaFile = open(regionsFile.seqfn,'r')
         asciiBase = 33
         if readErrors == 'none':
             qualityScore = 42
@@ -492,7 +492,7 @@ def validateBedFastaAndAutofillInput( df, args ):
         print("The chrom.sizes file at {} could not be found.".format(chromSizesFileName), file=sys.stderr)
         terminateFlag = True
     else:
-        chromSizesDf = pd.read_table( chromSizesFileName, sep="\t", header=None )
+        chromSizesDf = pd.read_csv( chromSizesFileName, sep="\t", header=None )
         if not np.issubdtype( chromSizesDf[1].dtype, np.number ):
             print( "Second column of chrom.sizes file should contain numeric data.", file=sys.stderr)
             terminateFlag = True
@@ -529,7 +529,7 @@ def validateBedFastaAndAutofillInput( df, args ):
             print("Summit positions must be positive.", file=sys.stderr)
             terminateFlag = True
 
-        df.loc[:,'strand'] = '.'
+    df.loc[:,'strand'] = '.'
 
     if 'name' in df.columns:
         df.loc[:,'name'] = df['name'].values
@@ -547,7 +547,9 @@ def validateBedFastaAndAutofillInput( df, args ):
     return [terminateFlag,df]
 
 def main():
-    inputFileName = args.input_file
+    inputFilePath = args.input_file
+    inputFileName = inputFilePath.split( os.path.sep )[-1]
+
     if args.output_prefix is None:
         outputFileName = inputFileName + '.chipulate.out'
         outputPrefix = inputFileName
@@ -563,7 +565,7 @@ def main():
     diagOutputFileName = outputDir + '.chipulate.diag_output'
     runInfoOutputFileName = outputDir + '.chipulate.run_info'
 
-    inputDf = pd.read_csv( inputFileName, sep="\t" )
+    inputDf = pd.read_csv( inputFilePath, sep="\t" )
     numLocations = inputDf.shape[0]
 
     terminateFlagInput, inputDf = validateAndAutofillInput( inputDf, args ) 
@@ -627,8 +629,8 @@ def main():
 
     if generateIntervals:
         bedCols = ['chr','start','end','name','summit','strand']
-        chromSizesDf = pd.read_table( chromSizesFileName, sep="\t", header=None )
-        chromSizesDf = chromSizesDf[[0,1]].rename( {0 : 'chr', 1 : 'max'}, axis=1 )
+        chromSizesDf = pd.read_csv( chromSizesFileName, sep="\t", header=None )
+        chromSizesDf = chromSizesDf[[0,1]].rename( {0 : 'chr', 1 : 'maxEntry'}, axis=1 )
 
         bedFileNames = makeBed( inputDf[bedCols], outputDf, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, outputDir=outputDir, readLength=readLength, fragmentLength=fragmentLength, fragmentJitter=fragmentJitter, libraryType=libraryType )
 
