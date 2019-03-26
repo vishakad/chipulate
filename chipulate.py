@@ -179,14 +179,8 @@ def performChipSeq( sequences=[], spEnergies=[], numCells=100000, depth=100,
 
     return [genome,chipSeq.chipFragmentNumbers,chipSeq.controlFragmentNumbers]
 
-def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, fragmentLength=200, readLength=42, fragmentJitter=40, outputDir="", libraryType='single-end' ):
+def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, fragmentLength=200, readLength=42, fragmentJitter=40, outputDir="", outputPrefix="", libraryType='single-end' ):
     fileNames = []
-    outputPrefix = ""
-
-    if len( outputDir ) == 0:
-        outputPrefix = ""
-    else:
-        outputPrefix = outputDir + '.'
 
     for (fragmentStr,readsToDuplicate) in zip(['chip_reads','control_reads'],[chipFragmentNumbers,controlFragmentNumbers]):
         numFragments = genome[fragmentStr].sum()
@@ -273,28 +267,23 @@ def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSi
             print( readsDf[['chr','start','end','name','score','strand']].loc[outOfBounds,:] )
 
         if libraryType == 'single-end':
-            fileName = outputPrefix + fragmentStr + '.bed'
+            fileName = os.path.join( outputDir, outputPrefix + fragmentStr + '.bed' )
             readsDf[['chr','start','end','name','score','strand']].to_csv( fileName,sep="\t",index=False,header=False)
             fileNames.append( fileName )
         else:
             for (ext,df) in zip(['_R1.bed','_R2.bed'],[readsDf,readsDf2]):
-                fileName = outputPrefix + fragmentStr + ext
+                fileName = os.path.join( outputDir, outputPrefix + fragmentStr + ext )
                 df[['chr','start','end','name','score','strand']].to_csv( fileName,sep="\t",index=False,header=False)
                 fileNames.append( fileName )
 
     return fileNames
 
-def makeFastq( bedFileNames, genomeFileName, readLength, outputDir="", readErrors='none', libraryType='single-end' ):
+def makeFastq( bedFileNames, genomeFileName, readLength, readErrors='none', libraryType='single-end' ):
     for bedFileName in bedFileNames:
         fastqFileName = bedFileName[:-4] + '.fastq'
         regionsFile = pybedtools.BedTool( bedFileName ).getfasta( fi=genomeFileName, bed=bedFileName, s=True, name=True )
 
-        if outputDir == "":
-            #regionsFile.save_seqs( fastaFileName )
-            fastqFile = open( fastqFileName, 'w' )
-        else:
-            #regionsFile.save_seqs( '{}.{}'.format( outputDir, fastaFileName ) )
-            fastqFile = open( '{}.{}'.format( outputDir, fastqFileName ), 'w' )
+        fastqFile = open( fastqFileName, 'w' )
 
         fastaFile = open(regionsFile.seqfn,'r')
         asciiBase = 33
@@ -552,18 +541,22 @@ def main():
 
     if args.output_prefix is None:
         outputFileName = inputFileName + '.chipulate.out'
-        outputPrefix = inputFileName
+        outputPrefix = inputFileName.split('.')[0] + '.'
     else:
         outputFileName = args.output_prefix + '.chipulate.out'
-        outputPrefix = args.output_prefix
+        outputPrefix = args.output_prefix + '.'
 
     if args.output_dir is None:
-        outputDir = outputPrefix
+        outputDir = "."
     else:
-        outputDir = os.path.join( args.output_dir, outputPrefix )
+        outputDir = args.output_dir
 
-    diagOutputFileName = outputDir + '.chipulate.diag_output'
-    runInfoOutputFileName = outputDir + '.chipulate.run_info'
+    if not os.path.isdir( outputDir ):
+        print("Creating output directory {} since it doesn't exist.".format( outputDir ))
+        os.mkdir( outputDir )
+
+    diagOutputFileName = outputPrefix + 'chipulate.diag_output'
+    runInfoOutputFileName = outputPrefix + 'chipulate.run_info'
 
     inputDf = pd.read_csv( inputFilePath, sep="\t" )
     numLocations = inputDf.shape[0]
@@ -632,7 +625,7 @@ def main():
         chromSizesDf = pd.read_csv( chromSizesFileName, sep="\t", header=None )
         chromSizesDf = chromSizesDf[[0,1]].rename( {0 : 'chr', 1 : 'maxEntry'}, axis=1 )
 
-        bedFileNames = makeBed( inputDf[bedCols], outputDf, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, outputDir=outputDir, readLength=readLength, fragmentLength=fragmentLength, fragmentJitter=fragmentJitter, libraryType=libraryType )
+        bedFileNames = makeBed( inputDf[bedCols], outputDf, chipFragmentNumbers, controlFragmentNumbers, chromSizesDf, outputDir=outputDir, outputPrefix=outputPrefix, readLength=readLength, fragmentLength=fragmentLength, fragmentJitter=fragmentJitter, libraryType=libraryType )
 
         makeFastq( bedFileNames, genomeFileName, readLength, libraryType=libraryType )
 
@@ -645,10 +638,10 @@ def main():
         inputDf.loc[:,col] = outputDf[col]
 
     #Write basic output to output file
-    inputDf[colsToWrite].to_csv( outputFileName, sep="\t", index=False )
+    inputDf[colsToWrite].to_csv( os.path.join( outputDir, outputFileName ), sep="\t", index=False )
 
     #Write diagnostic output
-    outputDf.to_csv( diagOutputFileName, sep="\t", index=False )
+    outputDf.to_csv( os.path.join( outputDir, diagOutputFileName ), sep="\t", index=False )
 
     #Write run information
     runInfoFile = open( runInfoOutputFileName, 'w' )
@@ -664,6 +657,10 @@ def main():
     runInfoFile.write( "Total read count : {}\n".format( depth*numLocations ) )
     if generateIntervals:
         runInfoFile.write( "Library type : {}\nRead length : {}\nFragment length : {}\nFragment jitter : {}\n".format( args.library_type, args.read_length, args.fragment_length, args.fragment_jitter ) )
+
+    runInfoFile.close()
+    print("ChIPulate run information : ")
+    print( open( runInfoOutputFileName, 'r' ).read() )
 
 if __name__ == "__main__":
     main()
