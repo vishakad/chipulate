@@ -205,12 +205,12 @@ To execute ```chipulate.py``` on this file with the remaining parameters set to 
 
 	python3 chipulate.py -i basicExample.tsv
 	
-No output file is specified in the above syntax. When this is the case, the input file name is used as a prefix to generate the  three output files described above. In this case, the files are named ```basicExample.tsv.chipulate.out``` (the main output file), ```basicExample.tsv.chipulate.out.diag_output``` (contains intermediate output from ChIPulate along with the output from the main output file) and ```basicExample.tsv.chipulate.run_info``` (contains run information about the parameters of the simulation). 
+No output file is specified in the above syntax. When this is the case, the input file name is used as a prefix to generate the  three output files described above. In this case, the files are named ```basicExample.chipulate.out``` (the main output file), ```basicExample.chipulate.out.diag_output``` (contains intermediate output from ChIPulate along with the output from the main output file) and ```basicExample.chipulate.run_info``` (contains run information about the parameters of the simulation). 
 
 
 #### Main output 
 
-In a run of the command ```python3 chipulate.py -i basicExample.tsv```, the contents of ```basicExample.tsv.chipulate.out``` are ---
+In a run of the command ```python3 chipulate.py -i basicExample.tsv```, the contents of ```basicExample.chipulate.out``` are ---
 
 	p_ext	p_amp	energy_A	chip_reads	unique_chip_reads	control_reads	unique_control_reads
 	0.539179	0.18	0.15	0	0	0	0
@@ -225,7 +225,7 @@ In a run of the command ```python3 chipulate.py -i basicExample.tsv```, the cont
 	0.578344	0.28	0.15	6	5	6	6
 
 #### .run_info output
-The information on the parameters used to generate this output are in ```basicExample.tsv.chipulate.out.run_info``` ---
+The information on the parameters used to generate this output are in ```basicExample.chipulate.out.run_info``` ---
 
 	Number of cells in ChIP sample : 100000
 	Control cell ratio : 0.1
@@ -236,7 +236,7 @@ The information on the parameters used to generate this output are in ```basicEx
 	Total read count : 1000
 	
 #### .diag_output diagnostic output
-The diagnostic output generated is in ```basicExample.tsv.chipulate.out.diag_output``` ---
+The diagnostic output generated is in ```basicExample.chipulate.out.diag_output``` ---
 
 	name	energy_A	binding	sequence	p_occ_chip	p_occ_bg	chip_fragments	control_fragments	unique_control_reads	control_reads	unique_chip_reads	chip_reads	amp_control_fragments	amp_chip_fragments	ext_control_fragments	ext_chip_fragments	read_count_ratio
 	1	0.15	direct		0.9453186827840592	0.04742587317756678	94473	497	0	0	0	0	3396	2674	284	239	
