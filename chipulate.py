@@ -540,8 +540,8 @@ def main():
     inputFileName = inputFilePath.split( os.path.sep )[-1]
 
     if args.output_prefix is None:
-        outputFileName = inputFileName + '.chipulate.out'
         outputPrefix = inputFileName.split('.')[0] + '.'
+        outputFileName = outputPrefix + 'chipulate.out'
     else:
         outputFileName = args.output_prefix + '.chipulate.out'
         outputPrefix = args.output_prefix + '.'
@@ -562,9 +562,20 @@ def main():
     numLocations = inputDf.shape[0]
 
     terminateFlagInput, inputDf = validateAndAutofillInput( inputDf, args ) 
+    regionNames = []
+    if terminateFlagInput:
+        print("Error(s) encountered in input. See output above. Aborting.", file=sys.stderr)
+        return 0
+
     if 'chr' in inputDf.columns and 'start' in inputDf.columns and 'end' in inputDf.columns:
         generateIntervals = True
         terminateFlagBedFasta, inputDf = validateBedFastaAndAutofillInput( inputDf, args )
+        regionNames = inputDf['name'].values
+        if terminateFlagBedFasta:
+            print("Error(s) encountered in input. See output above. Aborting.", file=sys.stderr)
+            return 0
+    else:
+        generateIntervals = False
     
     depth = args.depth
     numCells = args.num_cells
@@ -580,9 +591,6 @@ def main():
     fragmentJitter = args.fragment_jitter
     libraryType = args.library_type
 
-    if terminateFlagBedFasta or terminateFlagInput :
-        print("Error(s) encountered in input. See output above. Aborting.", file=sys.stderr)
-        return 0
 
     spEnergies = inputDf['energy_A']
     pAmp = inputDf['p_amp']
@@ -612,7 +620,7 @@ def main():
 
     outputDf, chipFragmentNumbers, controlFragmentNumbers = performChipSeq( sequences=sequences, spEnergies=spEnergies,
                             numCells=numCells, depth=depth, pAmp=pAmp,
-                            pExt=pExt, pcrCycles=pcrCycles, names=inputDf['name'].values,
+                            pExt=pExt, pcrCycles=pcrCycles, names=regionNames,
                             bgEnergy=inputBgEnergy, controlCellRatio=controlCellRatio,
                             chemicalPotential=chemicalPotentialA,
                             secondTFspEnergies=secondTFspEnergies,
