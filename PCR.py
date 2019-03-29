@@ -1,6 +1,7 @@
 import numpy as np
 import sys
-from os.path import isfile, join
+from os.path import isfile, join, isdir
+from os import makedirs
 from scipy.sparse import dok_matrix
 from scipy.stats import binom
 
@@ -161,7 +162,11 @@ class PCR:
         data sets." Nucleic acids research 43.21 (2015): e143-e143.
         """
 
-        possFilePath = join( sys.path[0], 'output', 'pcr-data', '{}-{}.npy'.format( self.nCycles, pAmp ) )
+        outputPcrPath = join( sys.path[0], 'output', 'pcr-data' )
+        if not isdir( outputPcrPath ):
+            makedirs( join( outputPcrPath ) )
+
+        possFilePath = join( outputPcrPath, '{}-{}.npy'.format( self.nCycles, pAmp ) )
 
         #In case the distribution has been already computed before, retrieve it
         #and return it instead of re-computing it afresh.
