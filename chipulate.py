@@ -212,6 +212,14 @@ def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSi
             lengths = bedDf['end'].values - bedDf['start'].values
             lengths = np.repeat( lengths, genome[uniqueFragmentStr] )
             uniqueFragmentStartPos = np.int64( uniqueFragmentMidPoints + lengths * np.random.random( size=numUniqueFragments ) - fragmentLength/2 )
+
+        #Deal with fragments whose left ends are assigned negative start coordinates
+        idxes = np.arange( len(uniqueFragmentStartPos), dtype=np.int )
+        negStarts = uniqueFragmentStartPos < 0
+        negIdxes = idxes[negStarts]
+        maxVals = uniqueFragmentMidPoints[negStarts]
+        for idx in range(len(negIdxes)):
+            uniqueFragmentStartPos[negIdxes[idx]] = np.random.randint( low=1, high=maxVals[idx], size=1 )
         
         uniqueReadNames = np.zeros( numUniqueFragments, dtype=np.object ) 
 
@@ -229,6 +237,7 @@ def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSi
             
         fragmentStartPos = np.repeat( uniqueFragmentStartPos.astype(np.int64), readsToDuplicate )
         readNames = np.repeat( uniqueReadNames, readsToDuplicate )
+        print( np.sum( fragmentStartPos < 0 ) )
         if libraryType == 'single-end':
             strand = np.repeat( uniqueStrand, readsToDuplicate )
             posStrand = strand == '+'
@@ -240,15 +249,16 @@ def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSi
         if libraryType == 'single-end':
             readsDf.loc[:,'strand'] = strand
             readsDf.loc[:,'name'] = readNames
-            readsDf.loc[posStrand,'start'] = np.maximum( 1, fragmentStartPos[posStrand] )
+            readsDf.loc[posStrand,'start'] = fragmentStartPos[posStrand]
             readsDf.loc[posStrand,'end'] = fragmentStartPos[posStrand] + readLength
             readsDf.loc[negStrand,'start'] = fragmentStartPos[negStrand] + fragmentLength - readLength
             readsDf.loc[negStrand,'end'] = fragmentStartPos[negStrand] + fragmentLength
         elif libraryType == 'paired-end':
+            print("Paired end")
             readsDf2 = readsDf.copy(deep=True)
             readNames2 = np.repeat( uniqueReadNames2, readsToDuplicate )
 
-            readsDf.loc[:,'start'] = np.maximum( 1, fragmentStartPos )
+            readsDf.loc[:,'start'] = fragmentStartPos
             readsDf.loc[:,'end'] = fragmentStartPos + readLength 
             readsDf.loc[:,'strand'] = '+'
             readsDf.loc[:,'name'] = readNames
@@ -259,11 +269,21 @@ def makeBed( bedDf, genome, chipFragmentNumbers, controlFragmentNumbers, chromSi
             readsDf2.loc[:,'name'] = readNames2
 
         outOfBounds = readsDf.query( 'end > maxEntry' ).index.tolist()
-        readsLeftShift = 1 + np.random.randint( 10, size=len(outOfBounds) )
-        readsDf.loc[outOfBounds,'end'] = readsDf.loc[outOfBounds,'maxEntry'] - readsLeftShift
-        readsDf.loc[outOfBounds,'start'] = readsDf.loc[outOfBounds,'start'] - readsLeftShift
+        readsShift = 1 + np.random.randint( 10, size=len(outOfBounds) )
+        readsDf.loc[outOfBounds,'end'] = readsDf.loc[outOfBounds,'maxEntry'] - readsShift
+        readsDf.loc[outOfBounds,'start'] = readsDf.loc[outOfBounds,'end'] - readLength
+
+        incorrectReadsDf = readsDf.query('end - start != {}'.format( readLength ))
+        print( incorrectReadsDf.head() )
+
+        if libraryType == 'paired-end':
+            outOfBounds = readsDf2.query( 'end > maxEntry' ).index.tolist()
+            readsShift = 1 + np.random.randint( 10, size=len(outOfBounds) )
+            readsDf2.loc[outOfBounds,'end'] = readsDf2.loc[outOfBounds,'maxEntry'] - readsShift
+            readsDf2.loc[outOfBounds,'start'] = readsDf2.loc[outOfBounds,'end'] - readLength
+
         if len( outOfBounds ) > 0:
-            print( "For the following {} fragment(s) in the {} sample, their right ends were at positions beyond the length of the chromosome. They were shifted to the left by upto 10 base pairs. This can be avoided by either setting a shorter fragment length, or choosing genomic regions away from chromosome ends.".format( len(outOfBounds), fragmentStr[:-6] ) )
+            print( "NOTE : For the following {} fragment(s) in the {} sample, their right ends were at positions beyond the length of the chromosome. They were shifted to the left by upto 10 base pairs. This can be avoided by either setting a shorter fragment length, or choosing genomic regions away from chromosome ends.".format( len(outOfBounds), fragmentStr[:-6] ) )
             print( readsDf[['chr','start','end','name','score','strand']].loc[outOfBounds,:] )
 
         if libraryType == 'single-end':
