@@ -107,7 +107,7 @@ class ChipSeq:
         duplicates = np.zeros( N, dtype=np.int )
 
         if generateIntervals:
-            readsToDuplicate = np.zeros( nReads, dtype=np.int )
+            readsToDuplicate = np.zeros( int(nReads), dtype=np.int )
         else:
             readsToDuplicate = []
 
